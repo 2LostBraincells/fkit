@@ -1,0 +1,33 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Dataset {
+    id          Int         @id @default(autoincrement())
+    name        String      @unique
+    collections Collection[]
+}
+
+model Collection {
+    id          Int         @id @default(autoincrement())
+    set_id      Int
+    set         Dataset     @relation(fields: [set_id], references: [id])
+    data_points DataPoint[]
+}
+
+model DataPoint {
+    id          Int         @id @default(autoincrement())
+    collection_id Int
+    collection  Collection  @relation(fields: [collection_id], references: [id])
+    key         String
+    value       String
+}
+
