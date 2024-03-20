@@ -1,16 +1,23 @@
-use std::collections::HashMap;
+use prisma::new_client;
+
+use std::{collections::HashMap, sync::Arc};
+use tokio::net::TcpListener;
 
 use axum::{
-    extract::{Path, Query},
+    extract::{Path, Query, State},
     routing::get,
     Router,
 };
-use tokio::net::TcpListener;
+
+mod prisma;
 
 #[tokio::main]
 async fn main() {
+    let db = Arc::new(new_client().await.unwrap());
+
     let app = Router::new()
-        .route("/add/*path", get(catch_all_text));
+        .route("/add/*path", get(catch_all_text))
+        .with_state(db);
 
     let listener = TcpListener::bind("0.0.0.0:3000")
         .await
@@ -24,6 +31,7 @@ async fn main() {
 async fn catch_all_text(
     Path(project): Path<String>,
     Query(data): Query<HashMap<String, String>>,
+    State(db): State<Arc<prisma::PrismaClient>>,
 ) -> String {
     let mut response = format!("Project: {}\n", project);
 
