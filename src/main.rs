@@ -1,28 +1,24 @@
-use prisma::{
-    collection::{self, WhereParam},
-    dataset, new_client,
-};
-use prisma_client_rust::BatchContainer;
+use prisma::{collection, data_point, dataset, new_client};
+use tokio::net::TcpListener;
 
 use std::{
     collections::{HashMap, HashSet},
-    future::IntoFuture,
     sync::Arc,
 };
-use tokio::net::TcpListener;
-
 use axum::{
     extract::{Path, Query, State},
     routing::get,
     Router,
 };
 
+#[allow(warnings, unused)]
 mod prisma;
 
 #[tokio::main]
 async fn main() {
     println!("Starting server...");
     let db = Arc::new(new_client().await.expect("Failed to create client"));
+
     println!("Database connected");
 
     let app = Router::new()
