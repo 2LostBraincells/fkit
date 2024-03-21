@@ -1,4 +1,4 @@
-use prisma::{collection, data_point, dataset, new_client};
+use database::{collection, dataset, new_client};
 use tokio::net::TcpListener;
 
 use std::{
@@ -10,9 +10,6 @@ use axum::{
     routing::get,
     Router,
 };
-
-#[allow(warnings, unused)]
-mod prisma;
 
 #[tokio::main]
 async fn main() {
@@ -38,7 +35,7 @@ async fn main() {
 async fn catch_all_text(
     Path(project): Path<String>,
     Query(data): Query<HashMap<String, String>>,
-    State(db): State<Arc<prisma::PrismaClient>>,
+    State(db): State<Arc<database::PrismaClient>>,
 ) -> String {
     let mut response = format!("Project: {}\n", project);
 
@@ -85,7 +82,7 @@ async fn catch_all_text(
     response
 }
 
-async fn csv(Path(project): Path<String>, State(db): State<Arc<prisma::PrismaClient>>) -> String {
+async fn csv(Path(project): Path<String>, State(db): State<Arc<database::PrismaClient>>) -> String {
     let mut response = format!("{}\n\n", project);
 
     // Set of column names for formatting the output
