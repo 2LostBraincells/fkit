@@ -1,8 +1,4 @@
-use prisma::{
-    collection::{self, WhereParam},
-    dataset, new_client,
-};
-use prisma_client_rust::BatchContainer;
+use database::*;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -16,8 +12,6 @@ use axum::{
     routing::get,
     Router,
 };
-
-mod prisma;
 
 #[tokio::main]
 async fn main() {
