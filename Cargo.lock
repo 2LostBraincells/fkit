@@ -342,6 +342,7 @@ name = "fkit"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "database",
  "tokio",
 ]
 
