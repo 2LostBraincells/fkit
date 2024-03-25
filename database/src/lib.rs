@@ -1,5 +1,6 @@
-use chrono::NaiveDateTime;
-use sqlx::{AnyPool, Executor, Pool};
+use chrono::{DateTime, Utc};
+use std::time;
+use sqlx::{Any, AnyPool, Executor, Pool};
 use std::sync::Arc;
 
 #[allow(unused)]
@@ -14,7 +15,7 @@ pub struct Dataset
     pool: Arc<AnyPool>,
     id: i64,
     name: String,
-    created_at: NaiveDateTime,
+    created_at: DateTime<Utc>,
 }
 
 #[allow(unused)]
@@ -22,14 +23,15 @@ pub struct Datastream {
     id: i64,
     data_type: String,
     name: String,
-    created_at: NaiveDateTime,
+    created_at: DateTime<Utc>,
 }
 
 #[allow(dead_code)]
+#[derive(sqlx::FromRow)]
 struct RawDataset {
     id: i64,
     name: String,
-    created_at: NaiveDateTime,
+    created_at: i64,
 }
 
 #[allow(dead_code)]
@@ -38,7 +40,7 @@ struct RawDatastream {
     name: String,
     dataset_id: i64,
     data_type: String,
-    created_at: NaiveDateTime,
+    created_at: DateTime<Utc>,
 }
 
 // impl Database<Sqlite> {
@@ -57,7 +59,7 @@ impl Database
 {
     pub async fn dataset(&self, name: &str) -> Dataset {
         let pool = &*self.pool;
-        let result = sqlx::query_as!(RawDataset, r#"SELECT * FROM Dataset WHERE name = ?"#, name)
+        let result: RawDataset = sqlx::query_as(r#"SELECT * FROM Dataset WHERE name = ?"#)// sqlx::query_as!(RawDataset, r#"SELECT * FROM Dataset WHERE name = ?"#, name)
             .fetch_one(pool)
             .await
             .unwrap();
@@ -66,7 +68,7 @@ impl Database
             pool: self.pool.clone(),
             id: result.id,
             name: result.name,
-            created_at: result.created_at,
+            created_at: DateTime::from_timestamp_millis(result.created_at).unwrap(),
         }
     }
 

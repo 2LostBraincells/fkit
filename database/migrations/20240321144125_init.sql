@@ -3,7 +3,7 @@
 CREATE TABLE Dataset (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW
+    created_at INTEGER NOT NULL DEFAULT NOW
 );
 
 CREATE TABLE Datastream (
@@ -11,7 +11,7 @@ CREATE TABLE Datastream (
     name TEXT NOT NULL,
     data_type TEXT NOT NULL,
     dataset_id INTEGER NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW,
+    created_at INTEGER NOT NULL DEFAULT NOW,
 
     FOREIGN KEY (dataset_id) REFERENCES Dataset(id)
 );
@@ -20,7 +20,7 @@ CREATE TABLE Collection (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     dataset_id INTEGER NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW,
+    created_at INTEGER NOT NULL DEFAULT NOW,
 
     FOREIGN KEY (dataset_id) REFERENCES Dataset(id)
 );

@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.35"
 serde = "1.0.197"
-sqlx = { version = "0.7.4", features = ["chrono", "sqlite", "runtime-tokio", "any"] }
+sqlx = { version = "0.7.4", features = ["chrono", "runtime-tokio", "any", "all-databases"] }
