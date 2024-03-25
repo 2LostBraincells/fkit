@@ -1,18 +1,14 @@
 use chrono::{DateTime, Utc};
-use std::time;
-use sqlx::{Any, AnyPool, Executor, Pool};
-use std::sync::Arc;
+use sqlx::{migrate, AnyPool};
 
 #[allow(unused)]
-pub struct Database
-{
-    pool: Arc<AnyPool>,
+pub struct Database {
+    pool: AnyPool,
 }
 
 #[allow(unused)]
-pub struct Dataset
-{
-    pool: Arc<AnyPool>,
+pub struct Dataset {
+    pool: AnyPool,
     id: i64,
     name: String,
     created_at: DateTime<Utc>,
@@ -35,32 +31,30 @@ struct RawDataset {
 }
 
 #[allow(dead_code)]
+#[derive(sqlx::FromRow)]
 struct RawDatastream {
     id: i64,
     name: String,
     dataset_id: i64,
     data_type: String,
-    created_at: DateTime<Utc>,
+    created_at: i64,
 }
 
-// impl Database<Sqlite> {
-//     pub async fn new(url: &str) -> Database<Sqlite> {
-//         let pool = SqlitePool::connect(url).await.unwrap();
-// 
-//         migrate!("./migrations").run(&pool).await.unwrap();
-// 
-//         Database {
-//             pool: Arc::new(pool),
-//         }
-//     }
-// }
+impl Database {
+    pub async fn new(url: &str) -> Database {
+        let pool = sqlx::Pool::connect(url).await.unwrap();
 
-impl Database
-{
+        migrate!("./migrations").run(&pool).await.unwrap();
+
+        Database { pool }
+    }
+}
+
+impl Database {
     pub async fn dataset(&self, name: &str) -> Dataset {
-        let pool = &*self.pool;
-        let result: RawDataset = sqlx::query_as(r#"SELECT * FROM Dataset WHERE name = ?"#)// sqlx::query_as!(RawDataset, r#"SELECT * FROM Dataset WHERE name = ?"#, name)
-            .fetch_one(pool)
+        let result: RawDataset = sqlx::query_as(r#"SELECT * FROM Dataset WHERE name = ?"#)
+            .bind(name)
+            .fetch_one(&self.pool)
             .await
             .unwrap();
 
@@ -72,45 +66,37 @@ impl Database
         }
     }
 
-    // pub async fn datasets(&self) -> impl Iterator<Item = Dataset<sqlx::Sqlite>> + '_ {
-    //     let pool = &*self.pool;
-    //     // Get all datasets as raw
-    //     sqlx::query_as!(RawDataset, r#"SELECT * FROM Dataset"#)
-    //         .fetch_all(pool)
-    //         .await
-    //         .unwrap()
-    //         .into_iter()
-    //         // Convert to Dataset
-    //         .map(|result| Dataset {
-    //             pool: self.pool.clone(),
-    //             id: result.id,
-    //             name: result.name,
-    //             created_at: result.created_at,
-    //         })
-    // }
+    pub async fn datasets(&self) -> impl Iterator<Item = Dataset> + '_ {
+        // Get all datasets as raw
+        sqlx::query_as(r#"SELECT * FROM Dataset"#)
+            .fetch_all(&self.pool)
+            .await
+            .unwrap()
+            .into_iter()
+            // Convert to Dataset
+            .map(|result: RawDataset| Dataset {
+                pool: self.pool.clone(),
+                id: result.id,
+                name: result.name,
+                created_at: DateTime::from_timestamp_millis(result.created_at).unwrap(),
+            })
+    }
 }
 
-// impl<Driver> Dataset<Driver> 
-// where
-//     Driver: sqlx::Database,
-// {
-//     pub async fn datastreams(&self) -> impl Iterator<Item = Datastream> + '_ {
-//         let pool = *self.pool;
-//         // Get all datastreams as raw
-//         sqlx::query_as!(
-//             RawDatastream,
-//             r#"SELECT * FROM Datastream WHERE dataset_id = ?"#,
-//             self.id
-//         )
-//         .fetch_all(&pool)
-//         .await
-//         .unwrap()
-//         .into_iter()
-//         .map(|result| Datastream {
-//             id: result.id,
-//             data_type: result.data_type,
-//             name: result.name,
-//             created_at: result.created_at,
-//         })
-//     }
-// }
+impl Dataset {
+    pub async fn datastreams(&self) -> impl Iterator<Item = Datastream> + '_ {
+        // Get all datastreams as raw
+        sqlx::query_as(r#"SELECT * FROM Datastream WHERE dataset_id = ?"#)
+            .bind(self.id)
+            .fetch_all(&self.pool)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|result: RawDatastream| Datastream {
+                id: result.id,
+                data_type: result.data_type,
+                name: result.name,
+                created_at: DateTime::from_timestamp_millis(result.created_at).unwrap(),
+            })
+    }
+}
