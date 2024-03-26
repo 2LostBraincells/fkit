@@ -3,12 +3,29 @@ use types::Project;
 
 pub mod types;
 
+/// Database for holding all project data and metadata
 #[allow(unused)]
 pub struct Database {
     pool: AnyPool,
 }
 
 impl Database {
+    /// Shorthand for creating a new database connection.
+    ///
+    /// This will install all available drivers and run the migrations in `./migrations`
+    ///
+    /// # Arguments
+    /// * `url` Url to the database
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use database::Database;
+    /// # tokio_test::block_on(test());
+    /// # async fn test() -> Result<(), sqlx::Error>{
+    /// let db = Database::new("sqlite::memory").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn new(url: &str) -> Result<Database, sqlx::Error> {
         sqlx::any::install_default_drivers();
         let pool = sqlx::Pool::connect(url).await?;
