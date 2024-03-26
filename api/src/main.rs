@@ -9,6 +9,8 @@ use axum::{
 };
 use tokio::net::TcpListener;
 
+mod conf;
+
 #[derive(Parser, Debug)]
 struct Args {
     #[clap(subcommand)]
