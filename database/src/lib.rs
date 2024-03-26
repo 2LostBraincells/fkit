@@ -1,11 +1,12 @@
-use sqlx::{migrate, prelude::FromRow, AnyPool};
-use types::Project;
+use sqlx::{migrate, AnyPool};
+use types::{Project, RawProject};
 
 pub mod types;
 
 /// Database for holding all project data and metadata
 #[allow(unused)]
 pub struct Database {
+    /// generic sqlx connection pool
     pool: AnyPool,
 }
 
@@ -27,16 +28,18 @@ impl Database {
     /// # }
     /// ```
     pub async fn new(url: &str) -> Result<Database, sqlx::Error> {
+        // Install all drivers and setup connection
         sqlx::any::install_default_drivers();
         let pool = sqlx::Pool::connect(url).await?;
 
+        // Run migrations
         migrate!("./migrations").run(&pool).await?;
 
         Ok(Database { pool })
     }
 
     /// Get a list of all the projects in the database
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// # use database::Database;
@@ -49,28 +52,17 @@ impl Database {
     /// ```
     ///
     /// # Returns
-    /// [Project]s or sqlx error if the query failed 
+    /// [Project]s or sqlx error if the query failed
     pub async fn get_projects(&self) -> Result<Vec<Project>, sqlx::Error> {
-        #[derive(FromRow)]
-        struct RawProject {
-            pub id: i64,
-            pub name: String,
-            pub encoded: String,
-            pub created_at: i64,
-        }
-        let projects = sqlx::query_as::<_, RawProject>("SELECT * FROM projects")
+        // Fetch and deserialize
+        let projects: Vec<RawProject> = sqlx::query_as("SELECT * FROM projects")
             .fetch_all(&self.pool)
             .await?;
 
+        // Convert from Raw to actual project
         Ok(projects
             .into_iter()
-            .map(|p| Project {
-                id: p.id,
-                name: p.name,
-                encoded: p.encoded,
-                created_at: chrono::DateTime::from_timestamp(p.created_at, 0)
-                    .expect("Invalid Timestamp"),
-            })
+            .map(|p| Project::from_raw(p, self.pool.clone()).unwrap())
             .collect())
     }
 }
