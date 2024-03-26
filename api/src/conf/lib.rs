@@ -1,8 +1,13 @@
 use config::{Config, ConfigError, File};
 use serde::Deserialize;
 
+pub const DEFAULT_CONFIG: &str = r#"
+[database]
+url = "sqlite://./fkit.db"
+"#;
+
 #[derive(Debug, Deserialize)]
-struct Settings {
+pub struct Settings {
     database: Option<DatabaseConfig>,
 }
 

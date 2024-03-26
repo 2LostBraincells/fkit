@@ -1,3 +1,4 @@
 **/target
 **/build.db
 **/fkit.toml
+sqlite_dev.db
