@@ -1,5 +1,5 @@
-use sqlx::{migrate, AnyPool};
 use crate::project::{Project, RawProject};
+use sqlx::{migrate, AnyPool};
 
 /// Database for holding all project data and metadata
 #[allow(unused)]
@@ -62,5 +62,32 @@ impl Database {
             .into_iter()
             .map(|p| Project::from_raw(p, self.pool.clone()).unwrap())
             .collect())
+    }
+
+    /// Get a specific project by name
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use database::Database;
+    /// # tokio_test::block_on(test());
+    /// # async fn test() -> Result<(), sqlx::Error>{
+    /// let db = Database::new("sqlite::memory").await?;
+    /// let project = db.get_project("foo").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Returns
+    /// [Project] or None if the project does not exist
+    /// Error if the query failed
+    pub async fn get_project(&self, name: &str) -> Result<Option<Project>, sqlx::Error> {
+        // Fetch and deserialize
+        let project: RawProject = sqlx::query_as("SELECT * FROM projects WHERE name = ?")
+            .bind(name)
+            .fetch_one(&self.pool)
+            .await?;
+
+        // Convert from Raw to actual project
+        Ok(Project::from_raw(project, self.pool.clone()))
     }
 }
