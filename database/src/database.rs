@@ -3,6 +3,7 @@ use sqlx::{migrate, AnyPool};
 
 /// Database for holding all project data and metadata
 #[allow(unused)]
+#[derive(Debug, Clone)]
 pub struct Database {
     /// generic sqlx connection pool
     pool: AnyPool,
