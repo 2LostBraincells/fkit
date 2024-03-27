@@ -1,4 +1,4 @@
-use config::{Config, ConfigError, File};
+use config_rs::{Config, ConfigError, File};
 use serde::Deserialize;
 
 pub const DEFAULT_CONFIG: &str = r#"

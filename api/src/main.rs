@@ -9,7 +9,7 @@ use axum::{
 };
 use tokio::net::TcpListener;
 
-mod conf;
+mod config;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -73,8 +73,10 @@ async fn create_project(Path(project): Path<String>) -> String {
 
 fn check_config_file() {
     let config_path = std::path::PathBuf::from("fkit.toml");
-    if config_path.exists() { return }
+    if config_path.exists() {
+        return;
+    }
 
     std::fs::File::create(&config_path).unwrap();
-    std::fs::write(&config_path, conf::DEFAULT_CONFIG).unwrap();
+    std::fs::write(&config_path, config::DEFAULT_CONFIG).unwrap();
 }
