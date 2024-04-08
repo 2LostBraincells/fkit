@@ -1,5 +1,7 @@
 use std::error::Error;
 
+/// Gets the name of the current directory the binary was run from.
+/// If youa re in a directory named `fkit` this function will return the string `"fkit"`
 pub fn current_directory_name() -> Result<String, Box<dyn Error>> {
     let current_dir = std::env::current_dir()?;
     let dir_name = current_dir

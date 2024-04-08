@@ -22,11 +22,17 @@ pub enum Schema {
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     database: DatabaseConfig,
+    server: Option<ServerConfig>,
 }
 
 #[derive(Debug, Deserialize)]
 struct DatabaseConfig {
     url: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ServerConfig {
+    port: Option<u16>,
 }
 
 impl Settings {
@@ -47,6 +53,10 @@ impl Settings {
             location: parts[1].to_string(),
             raw,
         }
+    }
+
+    pub fn get_server_port(&self) -> Option<u16> {
+        self.server.as_ref().and_then(|s| s.port)
     }
 }
 

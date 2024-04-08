@@ -91,4 +91,9 @@ impl Database {
         // Convert from Raw to actual project
         Ok(Project::from_raw(project, self.pool.clone()))
     }
+
+    /// Get the pool for this database
+    pub fn get_pool(&self) -> AnyPool {
+        self.pool.clone()
+    }
 }
