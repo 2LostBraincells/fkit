@@ -1,6 +1,13 @@
 use chrono::{DateTime, Utc};
 use sqlx::{prelude::FromRow, AnyPool};
 
+#[derive(FromRow, Debug, Clone, PartialEq, Eq)]
+pub struct ProjectBuilder {
+    name: String,
+    encoded: String,
+    created_at: i64,
+}
+
 /// A bare-bones representation of a project
 #[derive(FromRow, Debug, Clone, PartialEq, Eq)]
 pub struct RawProject {
@@ -41,6 +48,38 @@ pub struct Column {
     pub project_id: i64,
     pub column_type: DataType,
     pub created_at: DateTime<Utc>,
+}
+
+impl ProjectBuilder {
+    /// Creates a new project builder with the given name.
+    pub async fn new(name: String) -> ProjectBuilder {
+        ProjectBuilder {
+            name,
+            encoded: String::new(),
+            created_at: Utc::now().timestamp(),
+        }
+    }
+
+    /// Build the project. This involves inserting the project into the database as well as
+    /// fetching the project from the database.
+    pub async fn build(self, pool: AnyPool) -> Result<Project, sqlx::Error> {
+        let project = sqlx::query_as::<_, RawProject>(
+            r#"
+            INSERT INTO projects (name, encoded, created_at)
+            VALUES ($1, $2, $3)
+            RETURNING *
+            "#,
+        )
+        .bind(self.name)
+        .bind(self.encoded)
+        .bind(self.created_at)
+        .fetch_one(&pool)
+        .await?;
+
+        Project::from_raw(project, pool).ok_or(sqlx::Error::Decode(Box::new(
+            sqlx::error::Error::RowNotFound,
+        )))
+    }
 }
 
 impl Project {
