@@ -43,12 +43,17 @@ impl Database {
     /// Get a list of all the projects in the database
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// # use database::Database;
     /// # tokio_test::block_on(test());
     /// # async fn test() -> Result<(), sqlx::Error>{
     /// let db = Database::new("sqlite::memory").await?;
+    ///
+    /// db.create_project("foo").await?;
+    /// db.create_project("bar").await?;
     /// let projects = db.get_projects().await?;
+    ///
+    /// assert_eq!(projects.len(), 2);
     /// # Ok(())
     /// # }
     /// ```
@@ -70,13 +75,31 @@ impl Database {
 
     /// Get a specific project by name
     ///
+    /// # Arguments
+    /// * `name` - Name of the project to fetch
+    ///
     /// # Examples
-    /// ```rust
+    /// ```
+    /// # use database::Database;
+    /// # tokio_test::block_on(test());
+    /// # async fn test() -> Result<(), sqlx::Error>{
+    /// let db = Database::new("sqlite::memory").await?;
+    ///
+    /// db.create_project("foo").await?;
+    /// let project = db.get_project("foo").await?;
+    ///
+    /// assert!(project.is_some());
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ```
     /// # use database::Database;
     /// # tokio_test::block_on(test());
     /// # async fn test() -> Result<(), sqlx::Error>{
     /// let db = Database::new("sqlite::memory").await?;
     /// let project = db.get_project("foo").await?;
+    /// assert!(project.is_none());
     /// # Ok(())
     /// # }
     /// ```
@@ -104,6 +127,9 @@ impl Database {
     /// # async fn test() -> Result<(), sqlx::Error>{
     /// let db = Database::new("sqlite::memory").await?;
     /// let project = db.create_project("foo").await?;
+    ///
+    /// assert_eq!(project.name, "foo");
+    /// assert_eq!(project.encoded, "foo");
     /// # Ok(())
     /// # }
     /// ```
