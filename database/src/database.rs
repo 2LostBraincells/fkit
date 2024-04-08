@@ -1,4 +1,7 @@
-use crate::project::{Project, RawProject};
+use crate::{
+    project::{Project, RawProject},
+    utils::sql_encode,
+};
 use sqlx::{migrate, AnyPool};
 
 /// Database for holding all project data and metadata
@@ -90,6 +93,30 @@ impl Database {
 
         // Convert from Raw to actual project
         Ok(Project::from_raw(project, self.pool.clone()))
+    }
+
+    pub async fn create_project(&self, name: &str) -> Result<Project, sqlx::Error> {
+        // Encode the name
+        let encoded = sql_encode(name).expect("Valid name");
+
+        // Create table
+        sqlx::query(&format!("CREATE TABLE {} ()", encoded))
+            .execute(&self.pool)
+            .await?;
+
+        // Insert the project
+        let project: RawProject = sqlx::query_as(
+            r#"
+            INSERT INTO projects (name, encoded) VALUES (?, ?) RETURNING *
+            "#,
+        )
+        .bind(name)
+        .bind(encoded)
+        .fetch_one(&self.pool)
+        .await?;
+
+        // Convert from Raw to actual project
+        Ok(Project::from_raw(project, self.pool.clone()).unwrap())
     }
 
     /// Get the pool for this database
