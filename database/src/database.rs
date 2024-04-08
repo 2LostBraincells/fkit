@@ -95,6 +95,18 @@ impl Database {
         Ok(Project::from_raw(project, self.pool.clone()))
     }
 
+    /// Create a new project
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use database::Database;
+    /// # tokio_test::block_on(test());
+    /// # async fn test() -> Result<(), sqlx::Error>{
+    /// let db = Database::new("sqlite::memory").await?;
+    /// let project = db.create_project("foo").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn create_project(&self, name: &str) -> Result<Project, sqlx::Error> {
         // Encode the name
         let encoded = sql_encode(name).expect("Valid name");
