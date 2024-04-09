@@ -26,7 +26,7 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test());
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite::memory").await?;
+    /// let db = Database::new("sqlite::memory").await.expect("Database should be created");
     /// # Ok(())
     /// # }
     /// ```
@@ -48,11 +48,11 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test());
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite::memory").await?;
+    /// let db = Database::new("sqlite::memory").await.expect("Database should be created");
     ///
-    /// db.create_project("foo").await?;
-    /// db.create_project("bar").await?;
-    /// let projects = db.get_projects().await?;
+    /// db.create_project("foo").await.expect("Project should have been created");
+    /// db.create_project("bar").await.expect("Project should have been created");
+    /// let projects = db.get_projects().await.expect("Getting all projects should work");
     ///
     /// assert_eq!(projects.len(), 2);
     /// # Ok(())
@@ -84,10 +84,10 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test());
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite::memory").await?;
+    /// let db = Database::new("sqlite::memory").await.expect("Database should be created");
     ///
-    /// db.create_project("foo").await?;
-    /// let project = db.get_project("foo").await?;
+    /// db.create_project("foo").await.expect("Project should have been created");
+    /// let project = db.get_project("foo").await.expect("Getting project should be successful");
     ///
     /// assert!(project.is_some());
     /// # Ok(())
@@ -98,8 +98,8 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test());
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite::memory").await?;
-    /// let project = db.get_project("foo").await?;
+    /// let db = Database::new("sqlite::memory").await.expect("Database should be created");
+    /// let project = db.get_project("foo").await.expect("Getting project should be successful");
     /// assert!(project.is_none());
     /// # Ok(())
     /// # }
@@ -126,8 +126,8 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test());
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite::memory").await?;
-    /// let project = db.create_project("foo").await?;
+    /// let db = Database::new("sqlite::memory").await.expect("Database should be created");
+    /// let project = db.create_project("foo").await.expect("Project should have been created");
     ///
     /// assert_eq!(project.name, "foo");
     /// assert_eq!(project.encoded, "foo");
