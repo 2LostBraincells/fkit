@@ -5,7 +5,7 @@ use std::{collections::HashMap, error::Error, path::PathBuf};
 
 use axum::{
     extract::{Path, Query, State},
-    routing::get,
+    routing::post,
     Router,
 };
 use tokio::net::TcpListener;
@@ -26,8 +26,6 @@ enum Command {
     Init {},
     Run {
         #[clap(short, long)]
-        help: bool,
-        #[clap(short, long)]
         config: Option<PathBuf>,
     },
 }
@@ -39,12 +37,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Some(Command::Init {}) => {
             check_config_file()?;
         }
-        Some(Command::Run { help, config }) => {
-            if help {
-                println!("Runs the fkit server with the given config file.");
-                println!("If no config file is provided the program will fail.");
-                println!("A standard config file can be created with \"fkit init\", but it can also be created manually.");
-            }
+        Some(Command::Run { config }) => {
+            // if help {
+            //     println!("Runs the fkit server with the given config file.");
+            //     println!("If no config file is provided the program will fail.");
+            //     println!("A standard config file can be created with \"fkit init\", but it can also be created manually.");
+            // }
             run(config).await?;
         }
         None => {
@@ -72,8 +70,8 @@ async fn run(config_path: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     let database = Database::new(database_url.get_as_str()).await?;
 
     let routes = Router::new()
-        .route("/new/:project", get(create_project))
-        .route("/add/*path", get(catch_all_text));
+        .route("/new/:project", post(create_project))
+        .route("/add/*path", post(catch_all_text));
 
     let app = Router::new().nest("/", routes).with_state(database);
 
@@ -103,12 +101,13 @@ async fn catch_all_text(
 
 /// Creates a new project and inserts it into the database along with a corresponding table.
 async fn create_project(Path(project): Path<String>, State(database): State<Database>) -> String {
-    let project = ProjectBuilder::new(project)
-        .await
-        .build(database.get_pool())
-        .await;
+    if project.contains('/') {
+        return "Project name cannot contain a '/'".to_string();
+    }
 
-    format!("{:?}", project.unwrap())
+    database.create_project(&project).await.unwrap();
+
+    format!("{:?}", project)
 }
 
 /// Will check that the config file exists in the current directory and create it if it doesnt,

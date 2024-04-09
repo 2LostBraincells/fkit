@@ -2,6 +2,7 @@ use crate::{
     project::{Project, RawProject},
     utils::sql_encode,
 };
+use chrono::Utc;
 use sqlx::{migrate, AnyPool};
 
 /// Database for holding all project data and metadata
@@ -102,8 +103,8 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test());
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite::memory").await?;
-    /// let project = db.create_project("foo").await?;
+    /// let db = Database::new("sqlite::memory").await.unwrap();
+    /// let project = db.create_project("foo").await.unwrap();
     /// # Ok(())
     /// # }
     /// ```
@@ -116,16 +117,20 @@ impl Database {
             .execute(&self.pool)
             .await?;
 
+        let timestamp = Utc::now().timestamp();
+
         // Insert the project
         let project: RawProject = sqlx::query_as(
             r#"
-            INSERT INTO projects (name, encoded) VALUES (?, ?) RETURNING *
+            INSERT INTO projects (name, encoded_name, created_at) VALUES (?, ?, ?) RETURNING *
             "#,
         )
         .bind(name)
         .bind(encoded)
+        .bind(timestamp)
         .fetch_one(&self.pool)
-        .await?;
+        .await
+        .expect("Failed to insert project");
 
         // Convert from Raw to actual project
         Ok(Project::from_raw(project, self.pool.clone()).unwrap())
