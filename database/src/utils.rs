@@ -1,3 +1,5 @@
+
+/// Characters that can be safley used to create projects
 const ALLOWED_CHARS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
 
 /// Encodes a string to be safe for use in a SQL query
@@ -37,11 +39,11 @@ pub fn sql_encode(input: &str) -> Result<String,String> {
 }
 
 #[cfg(test)]
-mod tests {
+mod encode_name {
     use super::*;
 
     #[test]
-    fn test_sql_encode() {
+    fn invalid() {
         let output = sql_encode("Hello, world!");
         assert!(output.is_err());
 
@@ -49,7 +51,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sql_encode_safe() {
+    fn valid() {
         let output = sql_encode("Hello_world");
 
         assert_eq!(output.unwrap(), "Hello_world".to_string());

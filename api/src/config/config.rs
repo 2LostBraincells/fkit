@@ -111,6 +111,7 @@ mod tests {
             database: DatabaseConfig {
                 url: "sqlite://./test.db".to_string(),
             },
+            server: None,
         };
 
         let url = settings.get_database_url();

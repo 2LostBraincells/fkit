@@ -2,6 +2,7 @@ use crate::{
     project::{Project, RawProject},
     utils::sql_encode,
 };
+use chrono::Utc;
 use sqlx::{migrate, AnyPool};
 
 /// Database for holding all project data and metadata
@@ -142,14 +143,17 @@ impl Database {
             .execute(&self.pool)
             .await?;
 
+        let timestamp = Utc::now().timestamp();
+
         // Insert the project
         let project: RawProject = sqlx::query_as(
             r#"
-            INSERT INTO projects (name, encoded) VALUES (?, ?) RETURNING *
+            INSERT INTO projects (name, encoded_name, created_at) VALUES (?, ?, ?) RETURNING *
             "#,
         )
         .bind(name)
         .bind(encoded)
+        .bind(timestamp)
         .fetch_one(&self.pool)
         .await?;
 
