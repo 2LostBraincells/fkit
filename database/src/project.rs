@@ -13,6 +13,7 @@ pub struct ProjectBuilder {
 pub struct RawProject {
     pub id: i64,
     pub name: String,
+    #[sqlx(rename = "encoded_name")]
     pub encoded: String,
     pub created_at: i64,
 }

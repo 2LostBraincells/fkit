@@ -50,10 +50,13 @@ impl Database {
     /// # async fn test() -> Result<(), sqlx::Error>{
     /// let db = Database::new("sqlite::memory:").await.expect("Database should be created");
     ///
-    /// db.create_project("foo").await.expect("Project should have been created");
-    /// db.create_project("bar").await.expect("Project should have been created");
     /// let projects = db.get_projects().await.expect("Getting all projects should work");
+    /// assert_eq!(projects.len(), 0);
     ///
+    /// db.create_project("foo").await.expect("Project foo should have been created");
+    /// db.create_project("bar").await.expect("Project bar should have been created");
+    ///
+    /// let projects = db.get_projects().await.expect("Getting all projects should work");
     /// assert_eq!(projects.len(), 2);
     /// # Ok(())
     /// # }
@@ -100,6 +103,7 @@ impl Database {
     /// # async fn test() -> Result<(), sqlx::Error>{
     /// let db = Database::new("sqlite::memory:").await.expect("Database should be created");
     /// let project = db.get_project("foo").await.expect("Getting project should be successful");
+    ///
     /// assert!(project.is_none());
     /// # Ok(())
     /// # }
@@ -141,7 +145,7 @@ impl Database {
         dbg!(&encoded);
 
         // Create table
-        sqlx::query(&format!("CREATE TABLE {} ()", encoded))
+        sqlx::query(dbg!(&format!("CREATE TABLE {} (timestamp INTEGER NOT NULL);", encoded)))
             .execute(&self.pool)
             .await?;
 
