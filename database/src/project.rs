@@ -11,11 +11,11 @@ pub struct ProjectBuilder {
 /// A bare-bones representation of a project
 #[derive(FromRow, Debug, Clone, PartialEq, Eq)]
 pub struct RawProject {
-    pub id: i64,
     pub name: String,
     #[sqlx(rename = "encoded_name")]
     pub encoded: String,
     pub created_at: i64,
+    pub id: i64,
 }
 
 #[derive(FromRow, Debug, Clone, PartialEq, Eq)]
@@ -85,7 +85,7 @@ impl ProjectBuilder {
 
 impl Project {
     pub fn from_raw(raw: RawProject, pool: AnyPool) -> Option<Project> {
-        let created_at = DateTime::from_timestamp(raw.created_at, 0)?;
+        let created_at = DateTime::from_timestamp(raw.created_at, 0).expect("Timestamp should be valid");
 
         Some(Project {
             pool,

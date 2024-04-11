@@ -33,7 +33,11 @@ impl Database {
     pub async fn new(url: &str) -> Result<Database, sqlx::Error> {
         // Install all drivers and setup connection
         sqlx::any::install_default_drivers();
-        let pool = sqlx::Pool::connect(url).await?;
+        let pool = sqlx::pool::PoolOptions::new()
+            .max_connections(99)
+            .idle_timeout(None)
+            .connect(url)
+            .await?;
 
         // Run migrations
         migrate!("./migrations").run(&pool).await?;
@@ -48,7 +52,7 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test());
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite::memory:").await.expect("Database should be created");
+    /// let db = Database::new("sqlite:file:foo?mode=memory&cache=shared").await.expect("Database should be created");
     ///
     /// let projects = db.get_projects().await.expect("Getting all projects should work");
     /// assert_eq!(projects.len(), 0);
@@ -73,7 +77,7 @@ impl Database {
         // Convert from Raw to actual project
         Ok(projects
             .into_iter()
-            .map(|p| Project::from_raw(p, self.pool.clone()).unwrap())
+            .map(|p| Project::from_raw(p, self.pool.clone()).expect("project should be valid"))
             .collect())
     }
 
@@ -87,7 +91,7 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test());
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite::memory:").await.expect("Database should be created");
+    /// let db = Database::new("sqlite:file:foo?mode=memory&cache=shared").await.expect("Database should be created");
     ///
     /// db.create_project("foo").await.expect("Project should have been created");
     /// let project = db.get_project("foo").await.expect("Getting project should be successful");
@@ -101,7 +105,7 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test());
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite::memory:").await.expect("Database should be created");
+    /// let db = Database::new("sqlite:file:foo?mode=memory&cache=shared").await.expect("Database should be created");
     /// let project = db.get_project("foo").await.expect("Getting project should be successful");
     ///
     /// assert!(project.is_none());
@@ -114,10 +118,14 @@ impl Database {
     /// Error if the query failed
     pub async fn get_project(&self, name: &str) -> Result<Option<Project>, sqlx::Error> {
         // Fetch and deserialize
-        let project: RawProject = sqlx::query_as("SELECT * FROM projects WHERE name = ?")
+        let project: RawProject = match sqlx::query_as("SELECT * FROM projects WHERE name = ?")
             .bind(name)
             .fetch_one(&self.pool)
-            .await?;
+            .await {
+                Err(sqlx::Error::RowNotFound) => return Ok(None),
+                Err(e) => return Err(e),
+                Ok(p) => p,
+            };
 
         // Convert from Raw to actual project
         Ok(Project::from_raw(project, self.pool.clone()))
@@ -145,9 +153,12 @@ impl Database {
         dbg!(&encoded);
 
         // Create table
-        sqlx::query(dbg!(&format!("CREATE TABLE {} (timestamp INTEGER NOT NULL);", encoded)))
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(dbg!(&format!(
+            "CREATE TABLE {} (timestamp INTEGER NOT NULL);",
+            encoded
+        )))
+        .execute(&self.pool)
+        .await?;
 
         let timestamp = Utc::now().timestamp();
         dbg!(timestamp);
@@ -171,5 +182,53 @@ impl Database {
     /// Get the pool for this database
     pub fn get_pool(&self) -> AnyPool {
         self.pool.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Database;
+
+    #[tokio::test]
+    async fn create_project() {
+        let db = Database::new("sqlite::memory:")
+            .await
+            .expect("Database should be created");
+        let project = db
+            .create_project("foo")
+            .await
+            .expect("Project should have been created");
+        assert_eq!(project.name, "foo");
+        assert_eq!(project.encoded, "foo");
+    }
+
+    #[tokio::test]
+    async fn get_projects() {
+        dbg!("creating database");
+        let db = Database::new("sqlite:file:foo?mode=memory&cache=shared")
+            .await
+            .expect("Database should be created");
+        dbg!("fetching projects");
+
+        let projects = db
+            .get_projects()
+            .await
+            .expect("Getting all projects should work");
+        assert_eq!(projects.len(), 0);
+
+        dbg!("Creating 2 projects, foo and bar");
+        db.create_project("foo")
+            .await
+            .expect("Project foo should have been created");
+        db.create_project("bar")
+            .await
+            .expect("Project bar should have been created");
+
+        dbg!("fetching projects again");
+        let projects = db
+            .get_projects()
+            .await
+            .expect("Getting all projects should work");
+        assert_eq!(projects.len(), 2);
     }
 }
