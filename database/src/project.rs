@@ -103,7 +103,7 @@ impl Project {
     /// # use database::Database;
     /// # tokio_test::block_on(test());
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite::memory").await?;
+    /// let db = Database::new("sqlite::file:foo?mode=memory").await?;
     /// let foo = db.get_project("foo").await?.unwrap();
     /// let columns = foo.get_columns().await?;
     /// # Ok(())
