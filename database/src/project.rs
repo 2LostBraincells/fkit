@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 use sqlx::{prelude::FromRow, AnyPool};
 
+use crate::utils;
+
 #[derive(FromRow, Debug, Clone, PartialEq, Eq)]
 pub struct ProjectBuilder {
     name: String,
@@ -135,6 +137,11 @@ impl Project {
         }
         Ok(columns)
     }
+
+    pub async fn create_column(&self, _name: &str, _column_type: DataType) -> Result<Column, sqlx::Error> {
+        todo!("Implement");
+    }
+
 }
 
 impl Column {
