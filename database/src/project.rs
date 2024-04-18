@@ -101,10 +101,13 @@ impl Project {
     /// # Example
     /// ```rust
     /// # use database::Database;
-    /// # tokio_test::block_on(test());
+    /// # tokio_test::block_on(test()).unwrap();
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite::file:foo?mode=memory").await?;
+    /// let db = Database::new("sqlite:file:get_columns?mode=memory").await?;
+    ///
+    /// db.create_project("foo").await?;
     /// let foo = db.get_project("foo").await?.unwrap();
+    ///
     /// let columns = foo.get_columns().await?;
     /// # Ok(())
     /// # }
