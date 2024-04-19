@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 use sqlx::{prelude::FromRow, AnyPool};
 
+use crate::utils::sql_encode;
+
 #[derive(FromRow, Debug, Clone, PartialEq, Eq)]
 pub struct ProjectBuilder {
     name: String,
@@ -85,7 +87,8 @@ impl ProjectBuilder {
 
 impl Project {
     pub fn from_raw(raw: RawProject, pool: AnyPool) -> Option<Project> {
-        let created_at = DateTime::from_timestamp(raw.created_at, 0).expect("Timestamp should be valid");
+        let created_at =
+            DateTime::from_timestamp(raw.created_at, 0).expect("Timestamp should be valid");
 
         Some(Project {
             pool,
@@ -105,10 +108,14 @@ impl Project {
     /// # async fn test() -> Result<(), sqlx::Error>{
     /// let db = Database::new("sqlite:file:get_columns?mode=memory").await?;
     ///
-    /// db.create_project("foo").await?;
-    /// let foo = db.get_project("foo").await?.unwrap();
+    /// db.create_project("foo").await
+    ///     .expect("Project should have been created");
+    /// let foo = db.get_project("foo").await
+    ///     .expect("Should be able to get project")
+    ///     .expect("Project should exist");
     ///
-    /// let columns = foo.get_columns().await?;
+    /// let columns = foo.get_columns().await
+    ///     .expect("should be able to get columns");
     /// # Ok(())
     /// # }
     /// ```
@@ -134,6 +141,96 @@ impl Project {
             }
         }
         Ok(columns)
+    }
+
+    /// Creates a new column for a given project with a given name
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use database::Database;
+    /// # tokio_test::block_on(test());
+    /// # async fn test() -> Result<(), sqlx::Error>{
+    /// let db = Database::new("sqlite:file:create_column?mode=memory")
+    ///   .await.expect("Database should be created");
+    /// let project = db.create_project("foo")
+    ///   .await.expect("Project should have been created");)
+    /// project.create_column("bar")
+    ///     .await.expect("Column should have been added");
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn create_column(&self, name: &str) -> Result<Option<Column>, sqlx::Error> {
+        let encoded_name = sql_encode(name).unwrap_or_else(|e| e);
+
+        self.add_column(&encoded_name).await?;
+        let raw_column = self.insert_column(name, &encoded_name).await?;
+
+        Ok(Column::from_raw(raw_column))
+    }
+
+    /// Alters the table of a given project to add a new column with the given name
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use database::Database;
+    /// # tokio_test::block_on(test());
+    /// # async fn test() -> Result<(), sqlx::Error>{
+    /// let db = Database::new("sqlite:file:create_column?mode=memory")
+    ///   .await.expect("Database should be created");
+    /// let project = db.create_project("foo")
+    ///   .await.expect("Project should have been created");)
+    /// project.add_column("bar").await.expect("Column should have been added");
+    /// # Ok(())
+    /// # }
+    /// ````
+    /// -- Table schema is now:
+    /// CREATE TABLE foo (timestamp INTEGER NOT NULL, bar TEXT);
+    pub async fn add_column(&self, encoded_name: &str) -> Result<(), sqlx::Error> {
+        sqlx::query(&format!(
+            r#"
+            ALTER TABLE {} ADD COLUMN {} TEXT
+            "#,
+            &self.encoded, &encoded_name
+        ))
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Inserts the column into the columns table of the database
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use database::Database;
+    /// # tokio_test::block_on(test());
+    /// # async fn test() -> Result<(), sqlx::Error>{
+    /// let db = Database::new("sqlite:file:create_column?mode=memory")
+    ///   .await.expect("Database should be created");
+    /// let project = db.create_project("foo")
+    ///   .await.expect("Project should have been created");)
+    /// project.insert_column("bar", "bar").await.expect("Column should have been inserted");
+    /// # Ok(())
+    /// # }
+    pub async fn insert_column(
+        &self,
+        name: &str,
+        encoded_name: &str,
+    ) -> Result<RawColumn, sqlx::Error> {
+        let created_at = Utc::now().timestamp();
+        sqlx::query_as(
+            r#"
+            INSERT INTO columns 
+            VALUES (?, ?, ?, ?)
+            RETURNING *
+            "#,
+        )
+        .bind(self.id)
+        .bind(name)
+        .bind(encoded_name)
+        .bind(created_at)
+        .fetch_one(&self.pool)
+        .await
     }
 }
 

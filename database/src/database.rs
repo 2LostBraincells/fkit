@@ -15,15 +15,6 @@ pub struct Database {
     pool: AnyPool,
 }
 
-#[derive(Debug, FromRow, Clone)]
-pub struct RawColumn {
-    pub id: i32,
-    pub project_id: i32,
-    pub name: String,
-    pub encoded_name: String,
-    pub created_at: i64,
-}
-
 impl Database {
     /// Shorthand for creating a new database connection.
     ///
@@ -160,86 +151,29 @@ impl Database {
     /// ```
     pub async fn create_project(&self, name: &str) -> Result<Project, sqlx::Error> {
         // Encode the name
-        let encoded = sql_encode(name).expect("Valid name");
+        let encoded = sql_encode(name).unwrap_or_else(|e| e);
 
         dbg!(&encoded);
 
         // Create table
-        sqlx::query(dbg!(&format!(
-            "CREATE TABLE {} (timestamp INTEGER NOT NULL);",
-            encoded
-        )))
-        .execute(&self.pool)
-        .await?;
+        self.create_project_table(&encoded).await?;
 
         let timestamp = Utc::now().timestamp();
         dbg!(timestamp);
 
         // Insert the project
-        let project: RawProject = dbg!(sqlx::query_as(
-                    r#"
-                    INSERT INTO projects (name, encoded_name, created_at) VALUES (?, ?, ?) RETURNING *
-                    "#,
-                )
-                .bind(name)
-                .bind(encoded)
-                .bind(timestamp)
-                .fetch_one(&self.pool)
-                .await?);
+        let project = self.insert_project(name, &encoded, timestamp).await?;
 
         // Convert from Raw to actual project
         Ok(Project::from_raw(project, self.pool.clone()).unwrap())
     }
 
-    #[inline]
-    /// Get the pool for this database
-    pub fn get_pool(&self) -> AnyPool {
-        self.pool.clone()
-    }
-
-    /// Creates a new column for a given project with a given name
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use database::Database;
-    /// # tokio_test::block_on(test());
-    /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite:file:zoo?mode=memory").await.expect("Database should be created");
-    /// let project = db.create_project("name_of_valid_project").await.expect("Project should have been created");
-    /// db.create_column("name_of_valid_project", "bar").await.expect("Column should have been created");
-    /// db.create_column("not_a_valid_project", "bar").await.expect_err("Column should not have been created");
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub async fn create_column(&self, project: &str, name: &str) -> Result<(), sqlx::Error> {
-        self.add_column(project, name).await?;
-        self.insert_column(project, name).await
-    }
-
-    /// Alters the table of a given project to add a new column with the given name
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use database::Database;
-    /// # tokio_test::block_on(test());
-    /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite:file:zoo?mode=memory").await.expect("Database should be created");
-    /// let project = db.create_project("foo").await.expect("Project should have been created");
-    /// db.add_column("foo", "bar").await.expect("Column should have been created");
-    /// # Ok(())
-    /// # }
-    /// ````
-    /// -- Table schema is now:
-    /// CREATE TABLE foo (timestamp INTEGER NOT NULL, bar TEXT);
-    pub async fn add_column(&self, project: &str, name: &str) -> Result<(), sqlx::Error> {
-        let encoded_name = dbg!(sql_encode(name).unwrap_or_else(|e| e));
-        let encoded_project = dbg!(sql_encode(project).unwrap_or_else(|e| e));
-
+    /// Creates a base table with a given name. Name is not sanitized so please do that before
+    /// calling the function.
+    async fn create_project_table(&self, encoded_name: &str) -> Result<(), sqlx::Error> {
         sqlx::query(&format!(
-            r#"
-            ALTER TABLE {} ADD COLUMN {} TEXT
-            "#,
-            &encoded_project, &encoded_name
+            "CREATE TABLE {} (timestamp INTEGER NOT NULL);",
+            encoded_name
         ))
         .execute(&self.pool)
         .await?;
@@ -247,64 +181,35 @@ impl Database {
         Ok(())
     }
 
-    /// Inserts the column into the columns table of the database
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use database::Database;
-    /// # tokio_test::block_on(test());
-    /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite:file:roo?mode=memory")
-    ///     .await
-    ///     .expect("Database should be created");
-    ///
-    /// db.create_project("foo")
-    ///     .await
-    ///     .expect("Project should have been created");
-    ///
-    /// db.insert_column("foo", "bar")
-    ///     .await
-    ///     .expect("Column should have been inserted");
-    ///
-    /// db.insert_column("bar", "baz")
-    ///     .await
-    ///     .expect_err("Column should not have been created");
-    /// # Ok(())
-    /// # }
-    pub async fn insert_column(&self, project: &str, name: &str) -> Result<(), sqlx::Error> {
-        let encoded_name = dbg!(sql_encode(name).unwrap_or_else(|e| e));
-        let project_id = dbg!(self.get_project_id(project).await?);
-        let created_at = Utc::now().timestamp();
-        sqlx::query(
+    /// Insert a project inte the database.
+    async fn insert_project(
+        &self,
+        name: &str,
+        encoded: &str,
+        timestamp: i64,
+    ) -> Result<RawProject, sqlx::Error> {
+        sqlx::query_as(
             r#"
-            INSERT INTO columns 
-            VALUES (?, ?, ?, ?)
+            INSERT INTO projects (name, encoded_name, created_at) VALUES (?, ?, ?) RETURNING *
             "#,
         )
-        .bind(project_id)
         .bind(name)
-        .bind(encoded_name)
-        .bind(created_at)
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
+        .bind(encoded)
+        .bind(timestamp)
+        .fetch_one(&self.pool)
+        .await
     }
 
     /// Retrieves the project id of a project, given the name, from the database.
     pub async fn get_project_id(&self, project: &str) -> Result<i32, sqlx::Error> {
         sqlx::query_scalar(
             r#"
-                    SELECT id FROM projects WHERE name = ?
-                    "#,
+            SELECT id FROM projects WHERE name = ?
+            "#,
         )
         .bind(project)
         .fetch_one(&self.pool)
         .await
-    }
-
-    pub async fn add_datapoint(values: HashMap<String, String>) -> Result<(), sqlx::Error> {
-        Ok(())
     }
 }
 
@@ -320,7 +225,7 @@ mod methods {
     #[tokio::test]
     async fn create_project() {
         let db = create_mem_db("create_project").await;
-        let project = create(&db, "foo").await;
+        let project = db.create("foo").await;
 
         assert_eq!(project.name, "foo");
         assert_eq!(project.encoded, "foo");
@@ -331,10 +236,10 @@ mod methods {
     async fn get_project() {
         let db = create_mem_db("get_project").await;
 
-        create(&db, "foo").await;
+        db.create("foo").await;
 
-        let foo = get(&db, "foo").await;
-        let roo = get(&db, "bar").await;
+        let foo = db.get("foo").await;
+        let roo = db.get("bar").await;
 
         assert!(foo.is_some());
         assert!(roo.is_none());
@@ -344,14 +249,14 @@ mod methods {
     async fn get_projects() {
         let db = create_mem_db("get_projects").await;
 
-        let projects = get_all(&db).await;
+        let projects = db.get_all().await;
 
         assert_eq!(projects.len(), 0);
 
-        create(&db, "foo").await;
-        create(&db, "bar").await;
+        db.create("foo").await;
+        db.create("bar").await;
 
-        let projects = get_all(&db).await;
+        let projects = db.get_all().await;
 
         assert_eq!(projects.len(), 2);
     }
@@ -362,21 +267,23 @@ mod methods {
             .expect("Database should be created")
     }
 
-    async fn create(db: &Database, name: &str) -> Project {
-        db.create_project(name)
-            .await
-            .expect("Project should have been created")
-    }
+    impl Database {
+        async fn create(&self, name: &str) -> Project {
+            self.create_project(name)
+                .await
+                .expect("Project should have been created")
+        }
 
-    async fn get(db: &Database, name: &str) -> Option<Project> {
-        db.get_project(name)
-            .await
-            .expect("Project should have been fetched")
-    }
+        async fn get(&self, name: &str) -> Option<Project> {
+            self.get_project(name)
+                .await
+                .expect("Project should have been fetched")
+        }
 
-    async fn get_all(db: &Database) -> Vec<Project> {
-        db.get_projects()
-            .await
-            .expect("Projects should have been fetched")
+        async fn get_all(&self) -> Vec<Project> {
+            self.get_projects()
+                .await
+                .expect("Projects should have been fetched")
+        }
     }
 }
