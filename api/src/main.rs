@@ -89,9 +89,11 @@ async fn catch_all_text(
     Query(data): Query<HashMap<String, String>>,
 ) -> String {
     let mut response = format!("Project: {}\n", project);
+    let mut datapoint = HashMap::new();
 
     for (key, value) in data {
         let entry = format!("{}: {}\n", key, value);
+        datapoint.insert(key, value);
 
         response.push_str(&entry)
     }

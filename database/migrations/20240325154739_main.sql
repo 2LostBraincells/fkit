@@ -12,5 +12,5 @@ CREATE TABLE IF NOT EXISTS columns (
     encoded_name STRING NOT NULL,
     created_at INTEGER NOT NULL,
 
-    FOREIGN KEY (project_id) REFERENCES project(id)
+    FOREIGN KEY (project_id) REFERENCES projects(id)
 );
