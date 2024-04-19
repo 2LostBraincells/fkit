@@ -306,7 +306,7 @@ impl DataType {
 
 #[cfg(test)]
 mod methods {
-    use crate::{database::methods::create_mem_db, project::DataType, utils::sql_encode};
+    use crate::{database::methods::create_mem_db, project::DataType};
 
     use super::{Column, Project};
 
