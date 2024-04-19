@@ -1,14 +1,9 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use sqlx::{prelude::FromRow, AnyPool};
 
 use crate::utils::sql_encode;
-
-#[derive(FromRow, Debug, Clone, PartialEq, Eq)]
-pub struct ProjectBuilder {
-    name: String,
-    encoded: String,
-    created_at: i64,
-}
 
 /// A bare-bones representation of a project
 #[derive(FromRow, Debug, Clone, PartialEq, Eq)]
@@ -51,38 +46,6 @@ pub struct Column {
     pub project_id: i64,
     pub column_type: DataType,
     pub created_at: DateTime<Utc>,
-}
-
-impl ProjectBuilder {
-    /// Creates a new project builder with the given name.
-    pub async fn new(name: String) -> ProjectBuilder {
-        ProjectBuilder {
-            name,
-            encoded: String::new(),
-            created_at: Utc::now().timestamp(),
-        }
-    }
-
-    /// Build the project. This involves inserting the project into the database as well as
-    /// fetching the project from the database.
-    pub async fn build(self, pool: AnyPool) -> Result<Project, sqlx::Error> {
-        let project = sqlx::query_as::<_, RawProject>(
-            r#"
-            INSERT INTO projects (name, encoded, created_at)
-            VALUES ($1, $2, $3)
-            RETURNING *
-            "#,
-        )
-        .bind(self.name)
-        .bind(self.encoded)
-        .bind(self.created_at)
-        .fetch_one(&pool)
-        .await?;
-
-        Project::from_raw(project, pool).ok_or(sqlx::Error::Decode(Box::new(
-            sqlx::error::Error::RowNotFound,
-        )))
-    }
 }
 
 impl Project {
@@ -148,14 +111,14 @@ impl Project {
     /// # Examples
     /// ```rust
     /// # use database::Database;
-    /// # tokio_test::block_on(test());
+    /// # tokio_test::block_on(test().unwrap());
     /// # async fn test() -> Result<(), sqlx::Error>{
     /// let db = Database::new("sqlite:file:create_column?mode=memory")
-    ///   .await.expect("Database should be created");
+    ///     .await?:
     /// let project = db.create_project("foo")
-    ///   .await.expect("Project should have been created");)
+    ///     .await?;
     /// project.create_column("bar")
-    ///     .await.expect("Column should have been added");
+    ///     .await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -174,11 +137,11 @@ impl Project {
     /// ```rust
     /// # use database::Database;
     /// # tokio_test::block_on(test());
-    /// # async fn test() -> Result<(), sqlx::Error>{
+    /// # async fn test() -> Result<(), sqlx::Error> {
     /// let db = Database::new("sqlite:file:create_column?mode=memory")
     ///   .await.expect("Database should be created");
     /// let project = db.create_project("foo")
-    ///   .await.expect("Project should have been created");)
+    ///   .await.expect("Project should have been created");
     /// project.add_column("bar").await.expect("Column should have been added");
     /// # Ok(())
     /// # }
@@ -208,7 +171,7 @@ impl Project {
     /// let db = Database::new("sqlite:file:create_column?mode=memory")
     ///   .await.expect("Database should be created");
     /// let project = db.create_project("foo")
-    ///   .await.expect("Project should have been created");)
+    ///   .await.expect("Project should have been created");
     /// project.insert_column("bar", "bar").await.expect("Column should have been inserted");
     /// # Ok(())
     /// # }
@@ -231,6 +194,128 @@ impl Project {
         .bind(created_at)
         .fetch_one(&self.pool)
         .await
+    }
+
+    /// Adds a datapoint to the project
+    pub async fn add_datapoint(&self, data: HashMap<String, String>) -> Result<(), sqlx::Error> {
+        let keys: Vec<String> = data.keys().cloned().collect();
+
+        // make sure all of the columns exist
+        self.verify_needed_columns(&keys).await?;
+
+        // Create the list of column keys
+        let column_keys: Vec<String> = ["timestamp".to_string()]
+            .iter()
+            .chain(keys.iter())
+            .map(|x| x.to_string())
+            .collect();
+
+        let timestamp = Utc::now().timestamp();
+        let query = self.generate_insert_query(&column_keys);
+
+        // Insert the data into the database
+        column_keys
+            .iter()
+            .skip(1)
+            .fold(sqlx::query(&query).bind(timestamp), |query, key| {
+                let value = data
+                    .get(key)
+                    .map(|x| x.to_string())
+                    .unwrap_or("".to_string());
+                query.bind(value)
+            })
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    /// Generates an insert query using the given columns. The first column must be `"timestamp"` and
+    /// the `column_names` slice must be non-empty.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # tokio_test::block_on(test());
+    /// # async fn test() -> Result<(), sqlx::Error>{
+    /// let column_names = ["bar", "baz", "qux", "quux"].iter().map(|x| x.to_string()).collect::<Vec<String>>();
+    /// let query = Project::generate_insert_query(&column_names);
+    ///
+    /// assert_eq!(query, r#"
+    /// INSERT INTO foo (bar, baz, qux, quux) 
+    /// VALUES (?, ?, ?, ?)
+    /// "#);
+    /// # Ok(())
+    /// # }
+    fn generate_insert_query(&self, column_names: &[String]) -> String {
+        assert!(!column_names.is_empty(), "Column names must be non-empty");
+        assert!(
+            column_names[0] == "timestamp",
+            "First column must be timestamp"
+        );
+
+        let query_columns = column_names
+            .iter()
+            .map(|name| sql_encode(name).unwrap_or_else(|e| e))
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        format!(
+            r#"
+            INSERT INTO {} ({})
+            VALUES (?{})
+            "#,
+            self.encoded,
+            query_columns,
+            ", ?".repeat(column_names.len() - 1)
+        )
+    }
+
+    async fn verify_needed_columns(&self, keys: &[String]) -> Result<(), sqlx::Error> {
+        // Get existing columns
+        let columns_vec = self.get_columns().await?;
+        let column_names: Vec<String> = columns_vec.iter().map(|c| c.name.clone()).collect();
+
+        ////////////////////////////////////////////////////////////////////////////////////////////
+        // As of right now we dont need to save the columns as structs as the column structs dont //
+        // really do anything. Feel free to uncomment this as necessary.                          //
+        ////////////////////////////////////////////////////////////////////////////////////////////
+
+        // // Create a hashmap, mapping column names to columns
+        // let mut columns: HashMap<String, Column> = HashMap::new();
+
+        // // Insert the timestamp column as it exists in every project
+        // columns.insert(
+        //     "timestamp".to_string(),
+        //     Column {
+        //         name: "timestamp".to_string(),
+        //         encoded: "timestamp".to_string(),
+        //         project_id: self.id,
+        //         column_type: DataType::Text,
+        //         created_at: Utc::now(),
+        //     },
+        // );
+
+        // // Insert the existing columns into the hashmap
+        // column_names.iter().for_each(|name| {
+        //     columns.insert(
+        //         name.clone(),
+        //         columns_vec
+        //             .iter()
+        //             .find(|c| c.name == *name)
+        //             .expect("Column should exist")
+        //             .clone(),
+        //     );
+        // });
+
+        // Create the rest of the columns
+        for key in keys.iter().filter(|key| !column_names.contains(key)) {
+            let _new_column = self.create_column(key).await?.unwrap();
+            // columns.insert(key.to_string(), _new_column);
+        }
+
+        // Ok(columns)
+        Ok(())
     }
 }
 

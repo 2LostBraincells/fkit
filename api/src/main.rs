@@ -88,6 +88,7 @@ async fn run(config_path: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+/// Catches the keys and values from the query string and returns them in a formatted string.
 async fn catch_all_text(
     Path(project): Path<String>,
     Query(data): Query<HashMap<String, String>>,
