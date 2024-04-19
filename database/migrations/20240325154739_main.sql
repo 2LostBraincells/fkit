@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE TABLE IF NOT EXISTS columns (
     project_id INTEGER NOT NULL,
     name STRING NOT NULL,
-    encoded_name STRING NOT NULL,
+    encoded STRING NOT NULL,
+    column_type STRING NOT NULL,
     created_at INTEGER NOT NULL,
 
     FOREIGN KEY (project_id) REFERENCES projects(id)

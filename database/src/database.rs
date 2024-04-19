@@ -28,7 +28,7 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test()).unwrap();
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite:file:new_database?mode=memory").await.expect("Database should be created");
+    /// let db = Database::new("sqlite:file:new_database?mode=memory").await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -54,15 +54,15 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test()).unwrap();
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite:file:foo?mode=memory").await.expect("Database should be created");
+    /// let db = Database::new("sqlite:file:foo?mode=memory").await?;
     ///
-    /// let projects = db.get_projects().await.expect("Getting all projects should work");
+    /// let projects = db.get_projects().await?;
     /// assert_eq!(projects.len(), 0);
     ///
-    /// db.create_project("foo").await.expect("Project foo should have been created");
-    /// db.create_project("bar").await.expect("Project bar should have been created");
+    /// db.create_project("foo").await?;
+    /// db.create_project("bar").await?;
     ///
-    /// let projects = db.get_projects().await.expect("Getting all projects should work");
+    /// let projects = db.get_projects().await?;
     /// assert_eq!(projects.len(), 2);
     /// # Ok(())
     /// # }
@@ -93,7 +93,7 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test()).unwrap();
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite:file:foo?mode=memory").await.expect("Database should be created");
+    /// let db = Database::new("sqlite:file:foo?mode=memory").await?;
     ///
     /// db.create_project("foo").await?;
     /// let project = db.get_project("foo").await?;
@@ -107,8 +107,8 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test()).unwrap();
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite:file:foo?mode=memory").await.expect("Database should be created");
-    /// let project = db.get_project("foo").await.expect("Getting project should be successful");
+    /// let db = Database::new("sqlite:file:foo?mode=memory").await?;
+    /// let project = db.get_project("foo").await?;
     ///
     /// assert!(project.is_none());
     /// # Ok(())
@@ -141,8 +141,8 @@ impl Database {
     /// # use database::Database;
     /// # tokio_test::block_on(test()).unwrap();
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite:file:foo?mode=memory").await.expect("Database should be created");
-    /// let project = db.create_project("foo").await.expect("Project should have been created");
+    /// let db = Database::new("sqlite:file:foo?mode=memory").await?;
+    /// let project = db.create_project("foo").await?;
     ///
     /// assert_eq!(project.name, "foo");
     /// assert_eq!(project.encoded, "foo");
@@ -214,7 +214,7 @@ impl Database {
 }
 
 #[cfg(test)]
-mod methods {
+pub mod methods {
     use crate::{project::Project, Database};
 
     #[tokio::test]
@@ -261,26 +261,26 @@ mod methods {
         assert_eq!(projects.len(), 2);
     }
 
-    async fn create_mem_db(name: &str) -> Database {
+    pub async fn create_mem_db(name: &str) -> Database {
         Database::new(&format!("sqlite:file:{}?mode=memory", name))
             .await
             .expect("Database should be created")
     }
 
     impl Database {
-        async fn create(&self, name: &str) -> Project {
+        pub async fn create(&self, name: &str) -> Project {
             self.create_project(name)
                 .await
                 .expect("Project should have been created")
         }
 
-        async fn get(&self, name: &str) -> Option<Project> {
+        pub async fn get(&self, name: &str) -> Option<Project> {
             self.get_project(name)
                 .await
                 .expect("Project should have been fetched")
         }
 
-        async fn get_all(&self) -> Vec<Project> {
+        pub async fn get_all(&self) -> Vec<Project> {
             self.get_projects()
                 .await
                 .expect("Projects should have been fetched")

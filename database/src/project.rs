@@ -71,14 +71,10 @@ impl Project {
     /// # async fn test() -> Result<(), sqlx::Error>{
     /// let db = Database::new("sqlite:file:get_columns?mode=memory").await?;
     ///
-    /// db.create_project("foo").await
-    ///     .expect("Project should have been created");
-    /// let foo = db.get_project("foo").await
-    ///     .expect("Should be able to get project")
-    ///     .expect("Project should exist");
+    /// db.create_project("foo").await?;
+    /// let foo = db.get_project("foo").await?.unwrap();
     ///
-    /// let columns = foo.get_columns().await
-    ///     .expect("should be able to get columns");
+    /// let columns = foo.get_columns().await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -110,23 +106,25 @@ impl Project {
     ///
     /// # Examples
     /// ```rust
-    /// # use database::Database;
-    /// # tokio_test::block_on(test().unwrap());
+    /// # use database::{Database, project::DataType};
+    /// # tokio_test::block_on(test()).unwrap();
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite:file:create_column?mode=memory")
-    ///     .await?:
-    /// let project = db.create_project("foo")
-    ///     .await?;
-    /// project.create_column("bar")
-    ///     .await?;
+    /// let db = Database::new("sqlite:file:create_column?mode=memory").await?;
+    /// let project = db.create_project("foo").await?;
+    ///
+    /// project.create_column("bar", DataType::Text).await?;
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn create_column(&self, name: &str) -> Result<Option<Column>, sqlx::Error> {
+    pub async fn create_column(
+        &self,
+        name: &str,
+        column_type: DataType,
+    ) -> Result<Option<Column>, sqlx::Error> {
         let encoded_name = sql_encode(name).unwrap_or_else(|e| e);
 
-        self.add_column(&encoded_name).await?;
-        let raw_column = self.insert_column(name, &encoded_name).await?;
+        self.add_column(&encoded_name, column_type).await?;
+        let raw_column = self.insert_column(name, &encoded_name, column_type).await?;
 
         Ok(Column::from_raw(raw_column))
     }
@@ -135,25 +133,30 @@ impl Project {
     ///
     /// # Examples
     /// ```rust
-    /// # use database::Database;
-    /// # tokio_test::block_on(test());
-    /// # async fn test() -> Result<(), sqlx::Error> {
-    /// let db = Database::new("sqlite:file:create_column?mode=memory")
-    ///   .await.expect("Database should be created");
-    /// let project = db.create_project("foo")
-    ///   .await.expect("Project should have been created");
-    /// project.add_column("bar").await.expect("Column should have been added");
+    /// # use database::{Database, project::DataType};
+    /// # tokio_test::block_on(test()).unwrap();
+    /// # async fn test() -> Result<(), sqlx::Error>{
+    /// let db = Database::new("sqlite:file:create_column?mode=memory").await?;
+    /// let project = db.create_project("foo").await?;
+    ///
+    /// project.add_column("bar", DataType::Text).await?;
     /// # Ok(())
     /// # }
     /// ````
     /// -- Table schema is now:
     /// CREATE TABLE foo (timestamp INTEGER NOT NULL, bar TEXT);
-    pub async fn add_column(&self, encoded_name: &str) -> Result<(), sqlx::Error> {
+    pub async fn add_column(
+        &self,
+        encoded_name: &str,
+        column_type: DataType,
+    ) -> Result<(), sqlx::Error> {
         sqlx::query(&format!(
             r#"
-            ALTER TABLE {} ADD COLUMN {} TEXT
+            ALTER TABLE {} ADD COLUMN {} {}
             "#,
-            &self.encoded, &encoded_name
+            &self.encoded,
+            &encoded_name,
+            column_type.to_sql()
         ))
         .execute(&self.pool)
         .await?;
@@ -165,32 +168,33 @@ impl Project {
     ///
     /// # Examples
     /// ```rust
-    /// # use database::Database;
-    /// # tokio_test::block_on(test());
-    /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite:file:create_column?mode=memory")
-    ///   .await.expect("Database should be created");
-    /// let project = db.create_project("foo")
-    ///   .await.expect("Project should have been created");
-    /// project.insert_column("bar", "bar").await.expect("Column should have been inserted");
+    /// # use database::{Database, project::DataType};
+    /// # tokio_test::block_on(test()).unwrap();
+    /// # async fn test() -> Result<(), sqlx::Error> {
+    /// let db = Database::new("sqlite:file:create_column?mode=memory").await?;
+    /// let project = db.create_project("foo").await?;
+    ///
+    /// project.insert_column("bar", "bar", DataType::Text).await?;
     /// # Ok(())
     /// # }
     pub async fn insert_column(
         &self,
         name: &str,
         encoded_name: &str,
+        column_type: DataType,
     ) -> Result<RawColumn, sqlx::Error> {
         let created_at = Utc::now().timestamp();
         sqlx::query_as(
             r#"
             INSERT INTO columns 
-            VALUES (?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
             RETURNING *
             "#,
         )
         .bind(self.id)
         .bind(name)
         .bind(encoded_name)
+        .bind(column_type.to_sql())
         .bind(created_at)
         .fetch_one(&self.pool)
         .await
@@ -310,7 +314,7 @@ impl Project {
 
         // Create the rest of the columns
         for key in keys.iter().filter(|key| !column_names.contains(key)) {
-            let _new_column = self.create_column(key).await?.unwrap();
+            let _new_column = self.create_column(key, DataType::Text).await?.unwrap();
             // columns.insert(key.to_string(), _new_column);
         }
 
@@ -381,6 +385,32 @@ impl DataType {
             "TEXT" => Some(DataType::Text),
             "BLOB" => Some(DataType::Unknown),
             _ => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod methods {
+    use crate::{database::methods::create_mem_db, project::DataType};
+
+    use super::{Column, Project};
+
+    #[tokio::test]
+    async fn create_column() {
+        let db = create_mem_db("create_column").await;
+        let project = db.create("foo").await;
+        let column = project.create("boo").await;
+
+        assert_eq!(column.name, "boo");
+        assert_eq!(column.encoded, "boo");
+    }
+
+    impl Project {
+        pub async fn create(&self, name: &str) -> Column {
+            self.create_column(name, DataType::Text)
+                .await
+                .expect("Column should be created")
+                .expect("Parsing column shouldn't fail")
         }
     }
 }
