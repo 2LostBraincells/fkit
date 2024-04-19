@@ -268,19 +268,19 @@ pub mod methods {
     }
 
     impl Database {
-        async fn create(&self, name: &str) -> Project {
+        pub async fn create(&self, name: &str) -> Project {
             self.create_project(name)
                 .await
                 .expect("Project should have been created")
         }
 
-        async fn get(&self, name: &str) -> Option<Project> {
+        pub async fn get(&self, name: &str) -> Option<Project> {
             self.get_project(name)
                 .await
                 .expect("Project should have been fetched")
         }
 
-        async fn get_all(&self) -> Vec<Project> {
+        pub async fn get_all(&self) -> Vec<Project> {
             self.get_projects()
                 .await
                 .expect("Projects should have been fetched")

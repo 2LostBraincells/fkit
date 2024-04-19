@@ -153,7 +153,11 @@ impl Project {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn create_column(&self, name: &str, column_type: DataType) -> Result<Option<Column>, sqlx::Error> {
+    pub async fn create_column(
+        &self,
+        name: &str,
+        column_type: DataType,
+    ) -> Result<Option<Column>, sqlx::Error> {
         let encoded_name = sql_encode(name).unwrap_or_else(|e| e);
 
         self.add_column(&encoded_name, column_type).await?;
@@ -178,12 +182,18 @@ impl Project {
     /// ````
     /// -- Table schema is now:
     /// CREATE TABLE foo (timestamp INTEGER NOT NULL, bar TEXT);
-    pub async fn add_column(&self, encoded_name: &str, column_type: DataType) -> Result<(), sqlx::Error> {
+    pub async fn add_column(
+        &self,
+        encoded_name: &str,
+        column_type: DataType,
+    ) -> Result<(), sqlx::Error> {
         sqlx::query(&format!(
             r#"
             ALTER TABLE {} ADD COLUMN {} {}
             "#,
-            &self.encoded, &encoded_name, column_type.to_sql()
+            &self.encoded,
+            &encoded_name,
+            column_type.to_sql()
         ))
         .execute(&self.pool)
         .await?;
@@ -294,9 +304,28 @@ impl DataType {
     }
 }
 
-// #[cfg(test)]
-// mod methods {
-//     use crate::{database::methods::create_mem_db, project::DataType, utils::sql_encode};
-// 
-//     use super::{Column, Project};
-// }
+#[cfg(test)]
+mod methods {
+    use crate::{database::methods::create_mem_db, project::DataType, utils::sql_encode};
+
+    use super::{Column, Project};
+
+    #[tokio::test]
+    async fn create_column() {
+        let db = create_mem_db("create_column").await;
+        let project = db.create("foo").await;
+        let column = project.create("boo").await;
+
+        assert_eq!(column.name, "boo");
+        assert_eq!(column.encoded, "boo");
+    }
+
+    impl Project {
+        pub async fn create(&self, name: &str) -> Column {
+            self.create_column(name, DataType::Text)
+                .await
+                .expect("Column should be created")
+                .expect("Parsing column shouldn't fail")
+        }
+    }
+}
