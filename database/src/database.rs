@@ -187,7 +187,7 @@ impl Database {
 }
 
 #[cfg(test)]
-mod methods {
+pub mod methods {
     use crate::{project::Project, Database};
 
     #[tokio::test]
@@ -198,7 +198,7 @@ mod methods {
     #[tokio::test]
     async fn create_project() {
         let db = create_mem_db("create_project").await;
-        let project = create(&db, "foo").await;
+        let project = cre_proj(&db, "foo").await;
 
         assert_eq!(project.name, "foo");
         assert_eq!(project.encoded, "foo");
@@ -209,10 +209,10 @@ mod methods {
     async fn get_project() {
         let db = create_mem_db("get_project").await;
 
-        create(&db, "foo").await;
+        cre_proj(&db, "foo").await;
 
-        let foo = get(&db, "foo").await;
-        let roo = get(&db, "bar").await;
+        let foo = get_proj(&db, "foo").await;
+        let roo = get_proj(&db, "bar").await;
 
         assert!(foo.is_some());
         assert!(roo.is_none());
@@ -222,37 +222,37 @@ mod methods {
     async fn get_projects() {
         let db = create_mem_db("get_projects").await;
 
-        let projects = get_all(&db).await;
+        let projects = get_all_projs(&db).await;
 
         assert_eq!(projects.len(), 0);
 
-        create(&db, "foo").await;
-        create(&db, "bar").await;
+        cre_proj(&db, "foo").await;
+        cre_proj(&db, "bar").await;
 
-        let projects = get_all(&db).await;
+        let projects = get_all_projs(&db).await;
 
         assert_eq!(projects.len(), 2);
     }
 
-    async fn create_mem_db(name: &str) -> Database {
+    pub async fn create_mem_db(name: &str) -> Database {
         Database::new(&format!("sqlite:file:{}?mode=memory", name))
             .await
             .expect("Database should be created")
     }
 
-    async fn create(db: &Database, name: &str) -> Project {
+    pub async fn cre_proj(db: &Database, name: &str) -> Project {
         db.create_project(name)
             .await
             .expect("Project should have been created")
     }
 
-    async fn get(db: &Database, name: &str) -> Option<Project> {
+    pub async fn get_proj(db: &Database, name: &str) -> Option<Project> {
         db.get_project(name)
             .await
             .expect("Project should have been fetched")
     }
 
-    async fn get_all(db: &Database) -> Vec<Project> {
+    pub async fn get_all_projs(db: &Database) -> Vec<Project> {
         db.get_projects()
             .await
             .expect("Projects should have been fetched")

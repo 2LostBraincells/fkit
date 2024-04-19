@@ -153,12 +153,30 @@ impl Project {
         todo!();
     }
 
+    /// Add column to the columns table
     async fn add_column_to_index(
-        _name: &str,
+        &self,
+        name: &str,
         _encoded: &str,
         _column_type: DataType,
     ) -> Result<Column, sqlx::Error> {
-        todo!()
+        let now: i32 = Utc::now().timestamp().try_into().unwrap();
+        sqlx::query_as(
+            r#"
+            INSERT INTO columns (name, encoded, column_type, project_id, created_at)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+            "#,
+        )
+        .bind(name)
+        .bind(_encoded)
+        .bind(_column_type.to_sql())
+        .bind(self.id)
+        .bind(now)
+        .fetch_one(&self.pool)
+        .await
+        .map(Column::from_raw)
+        .map(|c| c.expect("Failed to convert column"))
     }
 
     async fn add_column_to_table(_column: Column) -> Result<(), sqlx::Error> {
@@ -229,5 +247,35 @@ impl DataType {
             "BLOB" => Some(DataType::Unknown),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod methods {
+    use crate::{
+        database::methods::{cre_proj, create_mem_db},
+        project::DataType,
+        utils::sql_encode,
+    };
+
+    use super::{Column, Project};
+
+    #[tokio::test]
+    async fn add_column_to_index() {
+        let db = create_mem_db("add_column_to_index").await;
+        let project = cre_proj(&db, "foo").await;
+        project
+            .add_column_to_index("boo", "boo", DataType::Text)
+            .await
+            .expect("Adding column to index should work");
+
+        let column = project
+            .get_columns()
+            .await
+            .expect("Columns should have been fetched")
+            .pop()
+            .expect("Column should exist");
+
+        assert_eq!(column.name, "boo");
     }
 }
