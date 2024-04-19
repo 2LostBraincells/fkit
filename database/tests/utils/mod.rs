@@ -1,7 +1,15 @@
+use std::path::PathBuf;
+
 use database::{project::{Column, DataType, Project}, Database};
 
 pub async fn create_mem_db(name: &str) -> Database {
     Database::new(&format!("sqlite:file:{}?mode=memory", name))
+        .await
+        .expect("Database should be created")
+}
+
+pub async fn create_file_db(path: PathBuf) -> Database {
+    Database::new(&format!("sqlite:{}", path.to_string_lossy()))
         .await
         .expect("Database should be created")
 }
