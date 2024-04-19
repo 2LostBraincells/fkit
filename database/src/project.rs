@@ -108,14 +108,10 @@ impl Project {
     /// # async fn test() -> Result<(), sqlx::Error>{
     /// let db = Database::new("sqlite:file:get_columns?mode=memory").await?;
     ///
-    /// db.create_project("foo").await
-    ///     .expect("Project should have been created");
-    /// let foo = db.get_project("foo").await
-    ///     .expect("Should be able to get project")
-    ///     .expect("Project should exist");
+    /// db.create_project("foo").await?;
+    /// let foo = db.get_project("foo").await?.unwrap();
     ///
-    /// let columns = foo.get_columns().await
-    ///     .expect("should be able to get columns");
+    /// let columns = foo.get_columns().await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -148,14 +144,12 @@ impl Project {
     /// # Examples
     /// ```rust
     /// # use database::{Database, project::DataType};
-    /// # tokio_test::block_on(test());
+    /// # tokio_test::block_on(test()).unwrap();
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite:file:create_column?mode=memory")
-    ///   .await.expect("Database should be created");
-    /// let project = db.create_project("foo")
-    ///   .await.expect("Project should have been created");
-    /// project.create_column("bar", DataType::Text)
-    ///     .await.expect("Column should have been added");
+    /// let db = Database::new("sqlite:file:create_column?mode=memory").await?;
+    /// let project = db.create_project("foo").await?;
+    ///
+    /// project.create_column("bar", DataType::Text).await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -173,13 +167,12 @@ impl Project {
     /// # Examples
     /// ```rust
     /// # use database::{Database, project::DataType};
-    /// # tokio_test::block_on(test());
+    /// # tokio_test::block_on(test()).unwrap();
     /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let db = Database::new("sqlite:file:create_column?mode=memory")
-    ///   .await.expect("Database should be created");
-    /// let project = db.create_project("foo")
-    ///   .await.expect("Project should have been created");
-    /// project.add_column("bar", DataType::Text).await.expect("Column should have been added");
+    /// let db = Database::new("sqlite:file:create_column?mode=memory").await?;
+    /// let project = db.create_project("foo").await?;
+    ///
+    /// project.add_column("bar", DataType::Text).await?;
     /// # Ok(())
     /// # }
     /// ````
@@ -203,13 +196,12 @@ impl Project {
     /// # Examples
     /// ```rust
     /// # use database::{Database, project::DataType};
-    /// # tokio_test::block_on(test());
+    /// # tokio_test::block_on(test()).unwrap();
     /// # async fn test() -> Result<(), sqlx::Error> {
-    /// let db = Database::new("sqlite:file:create_column?mode=memory")
-    ///   .await.expect("Database should be created");
-    /// let project = db.create_project("foo")
-    ///   .await.expect("Project should have been created");
-    /// project.insert_column("bar", "bar", DataType::Text).await.expect("Column should have been inserted");
+    /// let db = Database::new("sqlite:file:create_column?mode=memory").await?;
+    /// let project = db.create_project("foo").await?;
+    ///
+    /// project.insert_column("bar", "bar", DataType::Text).await?;
     /// # Ok(())
     /// # }
     pub async fn insert_column(
