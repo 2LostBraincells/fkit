@@ -87,7 +87,8 @@ impl ProjectBuilder {
 
 impl Project {
     pub fn from_raw(raw: RawProject, pool: AnyPool) -> Option<Project> {
-        let created_at = DateTime::from_timestamp(raw.created_at, 0).expect("Timestamp should be valid");
+        let created_at =
+            DateTime::from_timestamp(raw.created_at, 0).expect("Timestamp should be valid");
 
         Some(Project {
             pool,
@@ -138,10 +139,31 @@ impl Project {
         Ok(columns)
     }
 
-    pub async fn create_column(&self, _name: &str, _column_type: DataType) -> Result<Column, sqlx::Error> {
-        todo!("Implement");
+    /// Add a new data column to the project
+    ///
+    /// # Arguments
+    /// * `name` - Name of the column
+    /// * `type` - Type of the column
+    pub async fn create_column(
+        &self,
+        _name: &str,
+        _encoded: &str,
+        _column_type: DataType,
+    ) -> Result<Column, sqlx::Error> {
+        todo!();
     }
 
+    async fn add_column_to_index(
+        _name: &str,
+        _encoded: &str,
+        _column_type: DataType,
+    ) -> Result<Column, sqlx::Error> {
+        todo!()
+    }
+
+    async fn add_column_to_table(_column: Column) -> Result<(), sqlx::Error> {
+        todo!()
+    }
 }
 
 impl Column {
