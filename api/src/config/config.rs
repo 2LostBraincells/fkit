@@ -20,7 +20,7 @@ pub enum Schema {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Settings {
+pub struct AppConfig {
     database: DatabaseConfig,
     server: Option<ServerConfig>,
 }
@@ -35,9 +35,9 @@ struct ServerConfig {
     port: Option<u16>,
 }
 
-impl Settings {
+impl AppConfig {
     pub fn load(path: PathBuf) -> Result<Self, ConfigError> {
-        let settings: Settings = Config::builder()
+        let settings: AppConfig = Config::builder()
             .add_source(File::with_name(path.to_str().unwrap()))
             .build()?
             .try_deserialize()?;
@@ -107,7 +107,7 @@ mod tests {
 
     #[test]
     fn test_get_url() {
-        let settings = Settings {
+        let settings = AppConfig {
             database: DatabaseConfig {
                 url: "sqlite://./test.db".to_string(),
             },

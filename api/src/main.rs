@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
-use config::Settings;
-use database::{project::ProjectBuilder, Database};
+use config::AppConfig;
+use database::Database;
 use std::{collections::HashMap, error::Error, path::PathBuf};
 
 use axum::{
@@ -48,8 +48,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         None => {
             if args.config_help {
                 println!("database url should be supplied by your database provider.");
-                println!("If your are using the default sqlite, the url should be in the format: sqlite://path/to/database.db");
-                println!("this path is usually absolute unless you specify the current directory with ./");
+                println!("If you are using the default sqlite, the url should be in the format: sqlite://path/to/database.db");
+                println!("this path is usually absolute unless specified with sqlite://./path/to/database.db");
             } else {
                 println!("No command provided. Run with --help for more information.");
             }
@@ -60,24 +60,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn run(config_path: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+    // Load the config file 
     let config_path = config_path.unwrap_or_else(|| PathBuf::from("fkit.toml"));
-    let config = load_config_file(config_path)?;
+    let config = AppConfig::load(config_path)?;
 
+    // Make sure the database file exists and open the database
     let database_url = config.get_database_url();
-
     check_database_file(database_url.get_location().into())?;
-
     let database = Database::new(database_url.get_as_str()).await?;
 
+    // Create the routes
     let routes = Router::new()
         .route("/new/:project", post(create_project))
-        .route("/add/*path", post(catch_all_text));
+        .route("/:project/new", post(catch_all_text));
 
+    // Create the app
     let app = Router::new().nest("/", routes).with_state(database);
 
+    // Create the serber
     let port = config.get_server_port().unwrap_or(3000);
     let listener = TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
 
+    // Start the server
     println!("Listening on: http://localhost:{}", port);
     axum::serve(listener, app).await?;
 
@@ -146,10 +150,4 @@ fn check_database_file(database_path: PathBuf) -> Result<(), Box<dyn Error>> {
         }
     })?;
     Ok(())
-}
-
-/// Loads the config file from the given path and returns the settings.
-fn load_config_file(file_path: PathBuf) -> Result<Settings, Box<dyn Error>> {
-    let settings = Settings::load(file_path)?;
-    Ok(settings)
 }
