@@ -278,4 +278,18 @@ mod methods {
 
         assert_eq!(column.name, "boo");
     }
+
+
+    pub async fn cre_col(project: &Project, name: &str, col_type: &DataType) -> Column {
+        println!(
+            "Creating column: {} for {} with type {}",
+            name,
+            project.name,
+            col_type.to_sql()
+        );
+        project
+            .create_column(name, &sql_encode(name).unwrap_or_else(|x| x), *col_type)
+            .await
+            .expect("Creating column should work")
+    }
 }
