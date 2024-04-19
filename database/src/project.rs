@@ -236,21 +236,6 @@ impl Project {
 
     /// Generates an insert query using the given columns. The first column must be `"timestamp"` and
     /// the `column_names` slice must be non-empty.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # tokio_test::block_on(test());
-    /// # async fn test() -> Result<(), sqlx::Error>{
-    /// let column_names = ["bar", "baz", "qux", "quux"].iter().map(|x| x.to_string()).collect::<Vec<String>>();
-    /// let query = Project::generate_insert_query(&column_names);
-    ///
-    /// assert_eq!(query, r#"
-    /// INSERT INTO foo (bar, baz, qux, quux) 
-    /// VALUES (?, ?, ?, ?)
-    /// "#);
-    /// # Ok(())
-    /// # }
     fn generate_insert_query(&self, column_names: &[String]) -> String {
         assert!(!column_names.is_empty(), "Column names must be non-empty");
         assert!(
@@ -275,6 +260,8 @@ impl Project {
         )
     }
 
+    /// Will verify that all the given keys correspond with a column in the database, creating any 
+    /// columns that do not exist.
     async fn verify_needed_columns(&self, keys: &[String]) -> Result<(), sqlx::Error> {
         // Get existing columns
         let columns_vec = self.get_columns().await?;
