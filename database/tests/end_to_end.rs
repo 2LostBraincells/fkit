@@ -63,7 +63,7 @@ mod read_file {
     #[tokio::test]
     #[allow(clippy::disallowed_names)]
     async fn simple_example() {
-        let db = create_file_db("tests/simple.db".into()).await;
+        let db = create_file_db("tests/.read_files/simple.db".into()).await;
 
         let bar = get(&db, "bar").await.expect("Project bar should exist");
         let baz = get(&db, "baz").await.expect("Project baz should exist");

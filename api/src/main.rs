@@ -72,7 +72,8 @@ async fn run(config_path: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // Create the routes
     let routes = Router::new()
         .route("/new/:project", post(create_project))
-        .route("/:project/new", post(catch_all_text));
+        .route("/:project/add", post(catch_all_text))
+        .route("/:project/columns", post(define_columns));
 
     // Create the app
     let app = Router::new().nest("/", routes).with_state(database);
@@ -151,4 +152,8 @@ fn check_database_file(database_path: PathBuf) -> Result<(), Box<dyn Error>> {
         }
     })?;
     Ok(())
+}
+
+async fn define_columns(Path(project): Path<String>, State(database): State<Database>, Query(query): Query<String>) -> String {
+    todo!()
 }

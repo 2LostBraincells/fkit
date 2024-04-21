@@ -8,7 +8,7 @@ use crate::utils;
 #[derive(Debug, Clone, Deserialize)]
 pub struct DatabaseUrl {
     raw: String,
-    scheme: String,
+    schema: String,
     location: String,
 }
 
@@ -49,7 +49,7 @@ impl AppConfig {
         let raw = self.database.url.clone();
         let parts = raw.split("://").collect::<Vec<&str>>();
         DatabaseUrl {
-            scheme: parts[0].to_string(),
+            schema: parts[0].to_string(),
             location: parts[1].to_string(),
             raw,
         }
@@ -61,8 +61,8 @@ impl AppConfig {
 }
 
 impl DatabaseUrl {
-    pub fn get_scheme(&self) -> Schema {
-        match self.scheme.as_str() {
+    pub fn get_schema(&self) -> Schema {
+        match self.schema.as_str() {
             "sqlite" => Schema::Sqlite,
             "postgres" => Schema::Postgres,
             "mysql" => Schema::Mysql,
@@ -84,7 +84,7 @@ impl DatabaseUrl {
     {
         self.raw = url.into();
         let parts = self.raw.split("://").collect::<Vec<&str>>();
-        self.scheme = parts[0].to_string();
+        self.schema = parts[0].to_string();
         self.location = parts[1].to_string();
     }
 }
@@ -116,7 +116,7 @@ mod tests {
 
         let url = settings.get_database_url();
         assert_eq!(url.raw, "sqlite://./test.db");
-        assert_eq!(url.scheme, "sqlite");
+        assert_eq!(url.schema, "sqlite");
         assert_eq!(url.location, "./test.db");
     }
 }
