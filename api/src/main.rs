@@ -140,7 +140,9 @@ fn check_database_file(database_path: PathBuf) -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    std::fs::File::create(&database_path).inspect_err(|e| {
+    let write_res = std::fs::File::create(&database_path);
+
+    if let Err(e) = &write_res {
         match e.kind() {
             std::io::ErrorKind::NotFound => {
                 println!("Could not create the database file. Ensure the database url is correct in the config file.");
@@ -150,7 +152,10 @@ fn check_database_file(database_path: PathBuf) -> Result<(), Box<dyn Error>> {
                 println!("Error creating database file: {:?}", e);
             }
         }
-    })?;
+    };
+
+    write_res?;
+
     Ok(())
 }
 
