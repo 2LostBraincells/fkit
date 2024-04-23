@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
-use database::{project::{Column, DataType, Project}, Database};
+use database::{
+    project::{Column, DataType, Project},
+    Database,
+};
 
 pub async fn create_mem_db(name: &str) -> Database {
     Database::new(&format!("sqlite:file:{}?mode=memory", name))
@@ -33,8 +36,8 @@ pub async fn get_all(db: &Database) -> Vec<Project> {
 }
 
 pub async fn cre_col(project: &Project, name: &str) -> Column {
-    project.create_column(name, DataType::Text)
+    project
+        .create_column(name, DataType::Text)
         .await
         .expect("Column should be created")
-        .expect("Parsing column shouldn't fail")
 }
