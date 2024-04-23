@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
 use sqlx::{prelude::FromRow, AnyPool};
@@ -94,10 +94,7 @@ impl Project {
 
         // Convert from Raw
         for column in raw {
-            match Column::from_raw(column) {
-                Some(c) => columns.push(c),
-                None => panic!("Failed to convert column"),
-            }
+            columns.push(Column::from_raw(column)?);
         }
         Ok(columns)
     }
@@ -120,13 +117,13 @@ impl Project {
         &self,
         name: &str,
         column_type: DataType,
-    ) -> Result<Option<Column>, sqlx::Error> {
+    ) -> Result<Column, sqlx::Error> {
         let encoded_name = sql_encode(name).unwrap_or_else(|e| e);
 
         self.add_column(&encoded_name, column_type).await?;
         let raw_column = self.insert_column(name, &encoded_name, column_type).await?;
 
-        Ok(Column::from_raw(raw_column))
+        Column::from_raw(raw_column)
     }
 
     /// Alters the table of a given project to add a new column with the given name
@@ -257,18 +254,22 @@ impl Project {
         let pre = self.get_columns().await?;
         let mut columns = HashMap::with_capacity(pre.len());
 
+        // Insert all columns into a hashmap for easy access
+        // and faster lookup
         pre.into_iter().for_each(|c| {
             columns.insert(c.name.clone(), c);
         });
 
         let mut result = Vec::with_capacity(keys.len());
 
+        // Check if the columns exist, if not create them
+        // Add all columns to result vector in the same order as the keys
         for key in keys {
             match columns.remove(key) {
                 Some(c) => result.push(c),
                 None => {
                     let column = self.create_column(key, DataType::Text).await?;
-                    result.push(column.expect("Parsing should work"));
+                    result.push(column);
                 }
             }
         }
@@ -281,13 +282,15 @@ impl Column {
     /// Convert a RawColumn to a Column
     ///
     /// # Returns
-    /// Some(Column) if the conversion was successful
-    /// None if the conversion failed
-    pub fn from_raw(raw: RawColumn) -> Option<Column> {
-        let created_at = DateTime::from_timestamp(raw.created_at, 0)?;
+    /// Ok(Column) if the conversion was successful
+    /// Err(sqlx::Error::Decode) if conversion failed
+    pub fn from_raw(raw: RawColumn) -> Result<Column, sqlx::Error> {
+        let created_at = DateTime::from_timestamp(raw.created_at, 0)
+            .ok_or_else(|| sqlx::Error::Decode("Invalid timestamp".into()))?;
 
-        Some(Column {
-            column_type: DataType::from_sql(&raw.column_type)?,
+        Ok(Column {
+            column_type: DataType::from_sql(&raw.column_type)
+                .ok_or_else(|| sqlx::Error::Decode("Invalid datatype".into()))?,
             name: raw.name,
             encoded: raw.encoded,
             project_id: raw.project_id,
@@ -364,7 +367,6 @@ mod methods {
             self.create_column(name, DataType::Text)
                 .await
                 .expect("Column should be created")
-                .expect("Parsing column shouldn't fail")
         }
     }
 }
