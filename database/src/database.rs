@@ -1,11 +1,9 @@
-use std::collections::HashMap;
-
 use crate::{
     project::{Project, RawProject},
     utils::sql_encode,
 };
 use chrono::Utc;
-use sqlx::{migrate, prelude::FromRow, AnyPool, Executor};
+use sqlx::{migrate, AnyPool};
 
 /// Database for holding all project data and metadata
 #[allow(unused)]
