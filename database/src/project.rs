@@ -215,7 +215,7 @@ impl Project {
             .collect();
 
         let timestamp = Utc::now().timestamp();
-        let query = self.generate_insert_query(&column_keys);
+        let query = self.generate_query(&column_keys);
 
         // Insert the data into the database
         column_keys
@@ -234,15 +234,8 @@ impl Project {
         Ok(())
     }
 
-    /// Generates an insert query using the given columns. The first column must be `"timestamp"` and
-    /// the `column_names` slice must be non-empty.
-    fn generate_insert_query(&self, column_names: &[String]) -> String {
-        assert!(!column_names.is_empty(), "Column names must be non-empty");
-        assert!(
-            column_names[0] == "timestamp",
-            "First column must be timestamp"
-        );
-
+    /// Generate sql query for inserting data into the project table
+    fn generate_query(&self, column_names: &[String]) -> String {
         let query_columns = column_names
             .iter()
             .map(|name| sql_encode(name).unwrap_or_else(|e| e))
@@ -252,15 +245,19 @@ impl Project {
         format!(
             r#"
             INSERT INTO {} ({})
-            VALUES (?{})
+            VALUES ({})
             "#,
             self.encoded,
             query_columns,
-            ", ?".repeat(column_names.len() - 1)
+            column_names
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<&str>>()
+                .join(",")
         )
     }
 
-    /// Will verify that all the given keys correspond with a column in the database, creating any 
+    /// Will verify that all the given keys correspond with a column in the database, creating any
     /// columns that do not exist.
     async fn verify_needed_columns(&self, keys: &[String]) -> Result<(), sqlx::Error> {
         // Get existing columns
