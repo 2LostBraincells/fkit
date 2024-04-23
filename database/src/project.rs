@@ -141,7 +141,7 @@ impl Project {
     /// # }
     /// ````
     /// -- Table schema is now:
-    /// CREATE TABLE foo (timestamp INTEGER NOT NULL, bar TEXT);
+    /// CREATE TABLE foo (__timestamp__ INTEGER NOT NULL, bar TEXT);
     pub async fn add_column(
         &self,
         encoded_name: &str,
@@ -202,7 +202,7 @@ impl Project {
         let mut keys = Vec::with_capacity(data.len());
         let mut values = Vec::with_capacity(data.len());
 
-        keys.push("timestamp".to_string());
+        keys.push("__timestamp__".to_string());
         values.push(Utc::now().timestamp().to_string());
 
         for (key, value) in data.iter() {
