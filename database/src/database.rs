@@ -172,7 +172,7 @@ impl Database {
     /// calling the function.
     async fn create_project_table(&self, encoded_name: &str) -> Result<(), sqlx::Error> {
         sqlx::query(&format!(
-            "CREATE TABLE {} (timestamp INTEGER NOT NULL);",
+            "CREATE TABLE {} (__timestamp__ INTEGER NOT NULL);",
             encoded_name
         ))
         .execute(&self.pool)
