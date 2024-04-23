@@ -202,32 +202,30 @@ impl Project {
 
     /// Adds a datapoint to the project
     pub async fn add_datapoint(&self, data: HashMap<String, String>) -> Result<(), sqlx::Error> {
-        let keys: Vec<String> = data.keys().cloned().collect();
+        let mut keys = Vec::with_capacity(data.len());
+        let mut values = Vec::with_capacity(data.len());
+
+        keys.push("timestamp".to_string());
+        values.push(Utc::now().timestamp().to_string());
+
+        for (key, value) in data.iter() {
+            keys.push(key.to_string());
+            values.push(value.to_string());
+        }
 
         // make sure all of the columns exist
-        self.get_or_create_columns(&keys).await?;
+        let columns = self.get_or_create_columns(&keys).await?;
 
-        // Create the list of column keys
-        let column_keys: Vec<String> = ["timestamp".to_string()]
+        let query = self.generate_query(
+            &columns
+                .iter()
+                .map(|c| c.encoded.clone())
+                .collect::<Vec<String>>(),
+        );
+
+        values
             .iter()
-            .chain(keys.iter())
-            .map(|x| x.to_string())
-            .collect();
-
-        let timestamp = Utc::now().timestamp();
-        let query = self.generate_query(&column_keys);
-
-        // Insert the data into the database
-        column_keys
-            .iter()
-            .skip(1)
-            .fold(sqlx::query(&query).bind(timestamp), |query, key| {
-                let value = data
-                    .get(key)
-                    .map(|x| x.to_string())
-                    .unwrap_or("".to_string());
-                query.bind(value)
-            })
+            .fold(sqlx::query(&query), |query, value| query.bind(value))
             .execute(&self.pool)
             .await?;
 
@@ -235,21 +233,15 @@ impl Project {
     }
 
     /// Generate sql query for inserting data into the project table
-    fn generate_query(&self, column_names: &[String]) -> String {
-        let query_columns = column_names
-            .iter()
-            .map(|name| sql_encode(name).unwrap_or_else(|e| e))
-            .collect::<Vec<String>>()
-            .join(", ");
-
+    fn generate_query(&self, encoded_names: &[String]) -> String {
         format!(
             r#"
             INSERT INTO {} ({})
             VALUES ({})
             "#,
             self.encoded,
-            query_columns,
-            column_names
+            encoded_names.join(","),
+            encoded_names
                 .iter()
                 .map(|_| "?")
                 .collect::<Vec<&str>>()
@@ -266,7 +258,7 @@ impl Project {
         let mut columns = HashMap::with_capacity(pre.len());
 
         pre.into_iter().for_each(|c| {
-            columns.insert(c.encoded.clone(), c);
+            columns.insert(c.name.clone(), c);
         });
 
         let mut result = Vec::with_capacity(keys.len());
