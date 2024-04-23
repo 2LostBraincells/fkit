@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
 use sqlx::{prelude::FromRow, AnyPool};
@@ -205,7 +205,7 @@ impl Project {
         let keys: Vec<String> = data.keys().cloned().collect();
 
         // make sure all of the columns exist
-        self.verify_needed_columns(&keys).await?;
+        self.get_or_create_columns(&keys).await?;
 
         // Create the list of column keys
         let column_keys: Vec<String> = ["timestamp".to_string()]
@@ -258,52 +258,30 @@ impl Project {
     }
 
     /// Will verify that all the given keys correspond with a column in the database, creating any
-    /// columns that do not exist.
-    async fn verify_needed_columns(&self, keys: &[String]) -> Result<(), sqlx::Error> {
+    /// columns that do not exist. Returning an array of columns, guaranteed to be in the same
+    /// order as the keys
+    async fn get_or_create_columns(&self, keys: &[String]) -> Result<Vec<Column>, sqlx::Error> {
         // Get existing columns
-        let columns_vec = self.get_columns().await?;
-        let column_names: Vec<String> = columns_vec.iter().map(|c| c.name.clone()).collect();
+        let pre = self.get_columns().await?;
+        let mut columns = HashMap::with_capacity(pre.len());
 
-        ////////////////////////////////////////////////////////////////////////////////////////////
-        // As of right now we dont need to save the columns as structs as the column structs dont //
-        // really do anything. Feel free to uncomment this as necessary.                          //
-        ////////////////////////////////////////////////////////////////////////////////////////////
+        pre.into_iter().for_each(|c| {
+            columns.insert(c.encoded.clone(), c);
+        });
 
-        // // Create a hashmap, mapping column names to columns
-        // let mut columns: HashMap<String, Column> = HashMap::new();
+        let mut result = Vec::with_capacity(keys.len());
 
-        // // Insert the timestamp column as it exists in every project
-        // columns.insert(
-        //     "timestamp".to_string(),
-        //     Column {
-        //         name: "timestamp".to_string(),
-        //         encoded: "timestamp".to_string(),
-        //         project_id: self.id,
-        //         column_type: DataType::Text,
-        //         created_at: Utc::now(),
-        //     },
-        // );
-
-        // // Insert the existing columns into the hashmap
-        // column_names.iter().for_each(|name| {
-        //     columns.insert(
-        //         name.clone(),
-        //         columns_vec
-        //             .iter()
-        //             .find(|c| c.name == *name)
-        //             .expect("Column should exist")
-        //             .clone(),
-        //     );
-        // });
-
-        // Create the rest of the columns
-        for key in keys.iter().filter(|key| !column_names.contains(key)) {
-            let _new_column = self.create_column(key, DataType::Text).await?.unwrap();
-            // columns.insert(key.to_string(), _new_column);
+        for key in keys {
+            match columns.remove(key) {
+                Some(c) => result.push(c),
+                None => {
+                    let column = self.create_column(key, DataType::Text).await?;
+                    result.push(column.expect("Parsing should work"));
+                }
+            }
         }
 
-        // Ok(columns)
-        Ok(())
+        Ok(result)
     }
 }
 
