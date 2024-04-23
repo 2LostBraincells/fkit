@@ -93,6 +93,7 @@ async fn run(config_path: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
 async fn catch_all_text(
     Path(project): Path<String>,
     Query(data): Query<HashMap<String, String>>,
+    State(database): State<Database>,
 ) -> String {
     let mut response = format!("Project: {}\n", project);
     let mut datapoint = HashMap::new();
@@ -103,6 +104,17 @@ async fn catch_all_text(
 
         response.push_str(&entry)
     }
+
+    // Get project. If i soesnt exist, create it.
+    let project = match database.get_project(&project).await.unwrap() {
+        Some(project) => project,
+        None => {
+            database.create_project(&project).await.unwrap()
+        }
+    };
+
+    // Add datapooint to the database
+    project.add_datapoint(datapoint).await.unwrap();
 
     response
 }

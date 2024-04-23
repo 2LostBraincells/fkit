@@ -269,7 +269,7 @@ impl Project {
 
         ////////////////////////////////////////////////////////////////////////////////////////////
         // As of right now we dont need to save the columns as structs as the column structs dont //
-        // really do anything. Feel free to uncomment this as necessary.                          //
+        // really do anything. Feel free to uncomment as necessary.                               //
         ////////////////////////////////////////////////////////////////////////////////////////////
 
         // // Create a hashmap, mapping column names to columns

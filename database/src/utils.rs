@@ -1,3 +1,5 @@
+use crate::project::Column;
+
 
 /// Characters that can be safley used to create projects
 const ALLOWED_CHARS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
