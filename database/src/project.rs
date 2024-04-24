@@ -36,7 +36,10 @@ pub struct Project {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DataType {
     Text,
-    Unknown,
+    Integer,
+    BigInteger,
+    Float,
+    Raw,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -314,7 +317,10 @@ impl DataType {
     pub fn to_sql(&self) -> &str {
         match self {
             DataType::Text => "TEXT",
-            DataType::Unknown => "BLOB",
+            DataType::Raw => "BLOB",
+            DataType::Integer => "INTEGER",
+            DataType::BigInteger => "BIGINT",
+            DataType::Float => "FLOAT",
         }
     }
 
@@ -340,7 +346,10 @@ impl DataType {
     pub fn from_sql(s: &str) -> Option<DataType> {
         match s {
             "TEXT" => Some(DataType::Text),
-            "BLOB" => Some(DataType::Unknown),
+            "BLOB" => Some(DataType::Raw),
+            "INTEGER" => Some(DataType::Integer),
+            "BIGINT" => Some(DataType::BigInteger),
+            "FLOAT" => Some(DataType::Float),
             _ => None,
         }
     }
