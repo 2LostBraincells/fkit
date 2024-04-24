@@ -26,10 +26,19 @@ pub struct RawColumn {
 
 #[derive(Debug, Clone)]
 pub struct Project {
+    /// generic sqlx connection pool
     pool: AnyPool,
+
+    /// Project id in the database
     pub id: i64,
+
+    /// Project name
     pub name: String,
+
+    /// Project name but encoded for safe use in SQL
     pub encoded: String,
+
+    /// Time the project was created
     pub created_at: DateTime<Utc>,
 }
 
@@ -52,6 +61,11 @@ pub struct Column {
 }
 
 impl Project {
+    /// Convert a RawProject to a Project
+    ///
+    /// # Returns
+    /// Some(Project) if the conversion was successful
+    /// None if the conversion failed
     pub fn from_raw(raw: RawProject, pool: AnyPool) -> Option<Project> {
         let created_at =
             DateTime::from_timestamp(raw.created_at, 0).expect("Timestamp should be valid");
@@ -366,6 +380,9 @@ mod methods {
         let db = create_mem_db("create_column").await;
         let project = db.create("foo").await;
         let column = project.create("boo").await;
+
+        let columns = project.get_columns().await.expect("Columns should be fetched");
+        assert_eq!(columns.len(), 1);
 
         assert_eq!(column.name, "boo");
         assert_eq!(column.encoded, "boo");

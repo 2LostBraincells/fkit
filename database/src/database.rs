@@ -151,16 +151,12 @@ impl Database {
         // Encode the name
         let encoded = sql_encode(name).unwrap_or_else(|e| e);
 
-        dbg!(&encoded);
-
         // Create table
         self.create_project_table(&encoded).await?;
 
-        let timestamp = Utc::now().timestamp();
-        dbg!(timestamp);
-
         // Insert the project
-        let project = self.insert_project(name, &encoded, timestamp).await?;
+        let now = Utc::now().timestamp();
+        let project = self.insert_project(name, &encoded, now).await?;
 
         // Convert from Raw to actual project
         Ok(Project::from_raw(project, self.pool.clone()).unwrap())
@@ -179,7 +175,7 @@ impl Database {
         Ok(())
     }
 
-    /// Insert a project inte the database.
+    /// Insert a project inte the index.
     async fn insert_project(
         &self,
         name: &str,
@@ -188,24 +184,18 @@ impl Database {
     ) -> Result<RawProject, sqlx::Error> {
         sqlx::query_as(
             r#"
-            INSERT INTO projects (name, encoded_name, created_at) VALUES (?, ?, ?) RETURNING *
+            INSERT INTO
+                projects
+                (name, encoded_name, created_at)
+            VALUES
+                (?, ?, ?)
+            RETURNING
+                *
             "#,
         )
         .bind(name)
         .bind(encoded)
         .bind(timestamp)
-        .fetch_one(&self.pool)
-        .await
-    }
-
-    /// Retrieves the project id of a project, given the name, from the database.
-    pub async fn get_project_id(&self, project: &str) -> Result<i32, sqlx::Error> {
-        sqlx::query_scalar(
-            r#"
-            SELECT id FROM projects WHERE name = ?
-            "#,
-        )
-        .bind(project)
         .fetch_one(&self.pool)
         .await
     }
@@ -227,6 +217,15 @@ pub mod methods {
 
         assert_eq!(project.name, "foo");
         assert_eq!(project.encoded, "foo");
+    }
+
+    #[tokio::test]
+    async fn create_projects_weird_name() {
+        let db = create_mem_db("create_project_weird").await;
+        let project = db.create("foo/bar").await;
+
+        assert_eq!(project.name, "foo/bar");
+        assert_eq!(project.encoded, "foobar");
     }
 
     #[tokio::test]
