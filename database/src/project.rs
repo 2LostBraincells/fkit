@@ -219,9 +219,6 @@ impl Project {
         let mut keys = Vec::with_capacity(data.len());
         let mut values = Vec::with_capacity(data.len());
 
-        keys.push("__timestamp__".to_string());
-        values.push(Utc::now().timestamp().to_string());
-
         for (key, value) in data.iter() {
             keys.push(key.to_string());
             values.push(value.to_string());
@@ -229,17 +226,18 @@ impl Project {
 
         // make sure all of the columns exist
         let columns = self.get_or_create_columns(&keys).await?;
+        let names: Vec<String> = vec!["__timestamp__"]
+            .into_iter()
+            .map(|x| x.to_string())
+            .chain(columns.iter().map(|c| c.encoded.clone()))
+            .collect();
 
-        let query = self.generate_query(
-            &columns
-                .iter()
-                .map(|c| c.encoded.clone())
-                .collect::<Vec<String>>(),
-        );
+        let query = self.generate_query(&names);
+        let now = Utc::now().timestamp();
 
         values
             .iter()
-            .fold(sqlx::query(&query), |query, value| query.bind(value))
+            .fold(sqlx::query(&query).bind(now), |query, value| query.bind(value))
             .execute(&self.pool)
             .await?;
 
@@ -371,6 +369,8 @@ impl DataType {
 
 #[cfg(test)]
 mod methods {
+    use sqlx::Row;
+
     use crate::{database::methods::create_mem_db, project::DataType};
 
     use super::{Column, Project};
@@ -381,11 +381,80 @@ mod methods {
         let project = db.create("foo").await;
         let column = project.create("boo").await;
 
-        let columns = project.get_columns().await.expect("Columns should be fetched");
+        let columns = project.get_all().await;
         assert_eq!(columns.len(), 1);
 
         assert_eq!(column.name, "boo");
         assert_eq!(column.encoded, "boo");
+    }
+
+    #[tokio::test]
+    async fn create_columns() {
+        let db = create_mem_db("create_columns").await;
+        let project = db.create("foo").await;
+
+        project.create("boo").await;
+        project.create("bar").await;
+
+        let columns = project.get_all().await;
+        assert_eq!(columns.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_or_create_columns_single() {
+        let db = create_mem_db("get_or_create_columns_single").await;
+        let project = db.create("foo").await;
+
+        let names = vec!["boo".to_string()];
+
+        let columns = project.get_or_create_columns(&names).await.unwrap();
+        assert_eq!(columns.len(), 1);
+
+        assert_eq!(columns[0].name, "boo");
+    }
+
+    #[tokio::test]
+    async fn get_or_create_columns_multiple() {
+        let db = create_mem_db("get_or_create_columns_multiple").await;
+        let project = db.create("foo").await;
+
+        let names = vec![
+            "boo".to_string(),
+            "bar".to_string(),
+            "baz".to_string(),
+            "foo".to_string(),
+        ];
+
+        let columns = project.get_or_create_columns(&names).await.unwrap();
+        assert_eq!(columns.len(), 4);
+
+        assert_eq!(columns[0].name, "boo");
+        assert_eq!(columns[1].name, "bar");
+        assert_eq!(columns[2].name, "baz");
+        assert_eq!(columns[3].name, "foo");
+    }
+
+    #[tokio::test]
+    async fn add_single_data() {
+        let db = create_mem_db("add_single_data").await;
+        let project = db.create("foo").await;
+
+        project.create("boo").await;
+
+        let mut data = std::collections::HashMap::new();
+        data.insert("boo".to_string(), "bar".to_string());
+
+        project.add_datapoint(data).await.unwrap();
+
+        let pool = project.pool;
+        let data = sqlx::query("SELECT * FROM foo")
+            .fetch_one(&pool)
+            .await
+            .expect("Data should be inserted");
+
+        let boo: String = data.get("boo");
+
+        assert_eq!(boo, "bar");
     }
 
     impl Project {
@@ -393,6 +462,10 @@ mod methods {
             self.create_column(name, DataType::Text)
                 .await
                 .expect("Column should be created")
+        }
+
+        pub async fn get_all(&self) -> Vec<Column> {
+            self.get_columns().await.expect("Columns should be fetched")
         }
     }
 }
