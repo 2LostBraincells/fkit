@@ -162,5 +162,5 @@ fn check_database_file(database_path: PathBuf) -> Result<(), Box<dyn Error>> {
 async fn define_columns(Path(project): Path<String>, State(database): State<Database>, Query(query): Query<HashMap<String, String>>) -> String {
     let project = database.get_project(&project).await.unwrap().unwrap();
 
-    format!("{:?}", columns)
+    "bozo".to_string()
 }
