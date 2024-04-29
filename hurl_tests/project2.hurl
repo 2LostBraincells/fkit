@@ -1,1 +1,1 @@
-POST http://localhost:42069/new/project2
+POST http://localhost:3000/new/project2
