@@ -2,3 +2,4 @@
 **/build.db
 **/fkit.toml
 **/fkit.db
+.direnv

@@ -68,7 +68,7 @@ impl Project {
     /// None if the conversion failed
     pub fn from_raw(raw: RawProject, pool: AnyPool) -> Option<Project> {
         let created_at =
-            DateTime::from_timestamp(raw.created_at, 0).expect("Timestamp should be valid");
+            DateTime::from_timestamp(raw.created_at, 0).unwrap_or_default();
 
         Some(Project {
             pool,

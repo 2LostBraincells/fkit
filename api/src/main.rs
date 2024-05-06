@@ -5,6 +5,7 @@ use std::{collections::HashMap, error::Error, path::PathBuf};
 
 use axum::{
     extract::{Path, Query, State},
+    response::{IntoResponse, Result},
     routing::post,
     Router,
 };
@@ -60,7 +61,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn run(config_path: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
-    // Load the config file 
+    // Load the config file
     let config_path = config_path.unwrap_or_else(|| PathBuf::from("fkit.toml"));
     let config = AppConfig::load(config_path)?;
 
@@ -72,7 +73,7 @@ async fn run(config_path: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // Create the routes
     let routes = Router::new()
         .route("/new/:project", post(create_project))
-        .route("/:project/add", post(catch_all_text))
+        .route("/:project/add", post(add_datapoint))
         .route("/:project/columns", post(define_columns));
 
     // Create the app
@@ -105,6 +106,26 @@ async fn catch_all_text(
     }
 
     response
+}
+
+async fn add_datapoint(
+    Path(project): Path<String>,
+    Query(data): Query<HashMap<String, String>>,
+    State(database): State<Database>,
+) -> Result<String>{
+    let project = match database.get_project(&project).await.map_err(|e| format!("Error: {:?}", e).into_response())? {
+        None => database.create_project(&project).await.map_err(|e| format!("Error: {:?}", e).into_response())?,
+        Some(p) => p,
+    };
+
+    let mut datapoint = HashMap::new();
+    for (key, value) in data {
+        datapoint.insert(key, value);
+    }
+
+    project.add_datapoint(datapoint).await.map_err(|e| format!("Error: {:?}", e).into_response())?;
+
+    Ok("Success".to_string())
 }
 
 /// Creates a new project and inserts it into the database along with a corresponding table.
@@ -159,8 +180,12 @@ fn check_database_file(database_path: PathBuf) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn define_columns(Path(project): Path<String>, State(database): State<Database>, Query(query): Query<HashMap<String, String>>) -> String {
+async fn define_columns(
+    Path(project): Path<String>,
+    State(database): State<Database>,
+    Query(query): Query<HashMap<String, String>>,
+) -> String {
     let project = database.get_project(&project).await.unwrap().unwrap();
 
-    format!("{:?}", columns)
+    "bozo".to_string()
 }
