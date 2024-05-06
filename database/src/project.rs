@@ -245,7 +245,7 @@ impl Project {
     }
 
     /// All datapoints from the project
-    pub async fn get_data(&self) -> Result<Vec<HashMap<String, String>>, sqlx::Error> {
+    pub async fn get_data(&self) -> Result<Vec<HashMap<String, Option<String>>>, sqlx::Error> {
         let query = format!(
             r#"
             SELECT * FROM {}
