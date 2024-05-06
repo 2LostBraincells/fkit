@@ -474,7 +474,7 @@ mod methods {
         let data = project.get_data().await.unwrap();
 
         assert_eq!(data.len(), 1);
-        assert_eq!(data[0].get("boo"), Some("bar".to_string()).as_ref());
+        assert_eq!(data[0].get("boo"), Some(Some("bar".to_string())).as_ref());
     }
 
     impl Project {

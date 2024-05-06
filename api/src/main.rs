@@ -73,7 +73,7 @@ async fn run(config_path: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // Create the routes
     let routes = Router::new()
         .route("/new/:project", post(create_project))
-        .route("/:project/add", post(add_datapoint))
+        .route("/:project", post(add_datapoint))
         .route("/:project/columns", post(define_columns));
 
     // Create the app
@@ -114,7 +114,10 @@ async fn add_datapoint(
     State(database): State<Database>,
 ) -> Result<String>{
     let project = match database.get_project(&project).await.map_err(|e| format!("Error: {:?}", e).into_response())? {
-        None => database.create_project(&project).await.map_err(|e| format!("Error: {:?}", e).into_response())?,
+        None => {
+            println!("Project not found, creating new: {}", project);
+            database.create_project(&project).await.map_err(|e| format!("Error: {:?}", e).into_response())?
+        },
         Some(p) => p,
     };
 
@@ -134,6 +137,7 @@ async fn create_project(Path(project): Path<String>, State(database): State<Data
         return "Project name cannot contain a '/'".to_string();
     }
 
+    println!("Creating new project: {}", project);
     database.create_project(&project).await.unwrap();
 
     format!("{:?}", project)
