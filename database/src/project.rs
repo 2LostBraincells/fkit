@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use sqlx::{prelude::FromRow, AnyPool};
+use sqlx::{prelude::FromRow, AnyPool, Column as column, Row as row};
 
 use crate::utils::sql_encode;
 
@@ -244,6 +244,34 @@ impl Project {
         Ok(())
     }
 
+    /// All datapoints from the project
+    pub async fn get_data(&self) -> Result<Vec<HashMap<String, String>>, sqlx::Error> {
+        let query = format!(
+            r#"
+            SELECT * FROM {}
+            "#,
+            self.encoded
+        );
+
+        let data = sqlx::query(&query)
+            .fetch_all(&self.pool)
+            .await?
+            .into_iter()
+            .map(|row| {
+                let mut map = HashMap::new();
+                for column in row.columns() {
+                    if column.name() == "__timestamp__" {
+                        continue;
+                    }
+                    map.insert(column.name().to_string(), row.get(column.ordinal()));
+                }
+                map
+            })
+            .collect();
+
+        Ok(data)
+    }
+
     /// Generate sql query for inserting data into the project table
     fn generate_query(&self, encoded_names: &[String]) -> String {
         format!(
@@ -369,8 +397,6 @@ impl DataType {
 
 #[cfg(test)]
 mod methods {
-    use sqlx::Row;
-
     use crate::{database::methods::create_mem_db, project::DataType};
 
     use super::{Column, Project};
@@ -445,16 +471,10 @@ mod methods {
         data.insert("boo".to_string(), "bar".to_string());
 
         project.add_datapoint(data).await.unwrap();
+        let data = project.get_data().await.unwrap();
 
-        let pool = project.pool;
-        let data = sqlx::query("SELECT * FROM foo")
-            .fetch_one(&pool)
-            .await
-            .expect("Data should be inserted");
-
-        let boo: String = data.get("boo");
-
-        assert_eq!(boo, "bar");
+        assert_eq!(data.len(), 1);
+        assert_eq!(data[0].get("boo"), Some("bar".to_string()).as_ref());
     }
 
     impl Project {
