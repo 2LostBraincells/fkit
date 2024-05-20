@@ -6,8 +6,7 @@ FKIT is a local solution for easily storing data gathered by your application.
 
 ### Dependencies
 
-* sqlite3
-In its current state, FKIT uses sqlite3 as its database. This might change later.
+* sqlite3 - In its current state, FKIT uses sqlite3 as its database. This might change later.
 
 After installing all necessary Dependencies, you can try FKIT by running:
 
