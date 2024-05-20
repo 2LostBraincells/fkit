@@ -7,6 +7,7 @@ FKIT is a local solution for easily storing data gathered by your application.
 ### Dependencies
 
 * sqlite3 - In its current state, FKIT uses sqlite3 as its database. This might change later.
+* rustc and cargo - FKIT is written in Rust, so you will need the Rust compiler and package manager to build it.
 
 After installing all necessary Dependencies, you can try FKIT by running:
 
